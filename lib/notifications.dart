@@ -15,6 +15,10 @@ export 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show DateTimeComponents;
 export 'package:timezone/timezone.dart' show TZDateTime, local;
 
+typedef _Android = AndroidFlutterLocalNotificationsPlugin;
+typedef _IOS = IOSFlutterLocalNotificationsPlugin;
+typedef _MacOS = MacOSFlutterLocalNotificationsPlugin;
+
 class Notifications with ChangeNotifier {
   static final _log = Logger('Notifications');
   final _n = FlutterLocalNotificationsPlugin();
@@ -72,9 +76,7 @@ class Notifications with ChangeNotifier {
 
     if (Platform.isAndroid) {
       await _n
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
+          .resolvePlatformSpecificImplementation<_Android>()
           ?.createNotificationChannel(_androidChannel);
     }
 
@@ -89,26 +91,19 @@ class Notifications with ChangeNotifier {
   Future<bool?> _checkPermissions() async {
     bool? result;
     if (Platform.isAndroid) {
-      final impl = _n
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
+      final impl = _n.resolvePlatformSpecificImplementation<_Android>();
       result = await impl?.areNotificationsEnabled();
       if (result == true) {
         result = await impl?.canScheduleExactNotifications();
       }
     } else if (Platform.isIOS) {
       result = await _n
-          .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin
-          >()
+          .resolvePlatformSpecificImplementation<_IOS>()
           ?.checkPermissions()
           .then((r) => r?.isEnabled);
     } else if (Platform.isMacOS) {
       result = await _n
-          .resolvePlatformSpecificImplementation<
-            MacOSFlutterLocalNotificationsPlugin
-          >()
+          .resolvePlatformSpecificImplementation<_MacOS>()
           ?.checkPermissions()
           .then((r) => r?.isEnabled);
     } else {
@@ -122,25 +117,18 @@ class Notifications with ChangeNotifier {
   Future<bool?> requestPermissions() async {
     bool? result;
     if (Platform.isAndroid) {
-      final impl = _n
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
+      final impl = _n.resolvePlatformSpecificImplementation<_Android>();
       result = await impl?.requestNotificationsPermission();
       if (result == true) {
         result = await impl?.requestExactAlarmsPermission();
       }
     } else if (Platform.isIOS) {
       result = await _n
-          .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin
-          >()
+          .resolvePlatformSpecificImplementation<_IOS>()
           ?.requestPermissions(alert: true, badge: true, sound: true);
     } else if (Platform.isMacOS) {
       result = await _n
-          .resolvePlatformSpecificImplementation<
-            MacOSFlutterLocalNotificationsPlugin
-          >()
+          .resolvePlatformSpecificImplementation<_MacOS>()
           ?.requestPermissions(alert: true, badge: true, sound: true);
     } else {
       throw UnimplementedError(
