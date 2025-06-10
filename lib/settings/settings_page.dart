@@ -25,8 +25,8 @@ class _SettingsPageState extends State<SettingsPage> {
   List<AlarmSettings> _alarms = [];
 
   static final _alarmRingStream = Alarm.ringStream.stream.asBroadcastStream();
-  static final _alarmUpdateStream =
-      Alarm.updateStream.stream.asBroadcastStream();
+  static final _alarmUpdateStream = Alarm.updateStream.stream
+      .asBroadcastStream();
 
   late final StreamSubscription<AlarmSettings> _ringSubscription;
   late final StreamSubscription<int> _updateSubscription;
@@ -115,23 +115,22 @@ class _SettingsPageState extends State<SettingsPage> {
           if (_alarms.isNotEmpty)
             SafeArea(
               child: Column(
-                children:
-                    _alarms
-                        .map(
-                          (a) => AlarmTile(
-                            key: Key(a.id.toString()),
-                            title: TimeOfDay(
-                              hour: a.dateTime.hour,
-                              minute: a.dateTime.minute,
-                            ).format(context),
-                            onPressed: () => _navigateToAlarmScreen(a),
-                            onDismissed: () async {
-                              await Alarm.stop(a.id);
-                              await _loadAlarms();
-                            },
-                          ),
-                        )
-                        .toList(),
+                children: _alarms
+                    .map(
+                      (a) => AlarmTile(
+                        key: Key(a.id.toString()),
+                        title: TimeOfDay(
+                          hour: a.dateTime.hour,
+                          minute: a.dateTime.minute,
+                        ).format(context),
+                        onPressed: () => _navigateToAlarmScreen(a),
+                        onDismissed: () async {
+                          await Alarm.stop(a.id);
+                          await _loadAlarms();
+                        },
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           if (!kIsWeb)
@@ -169,11 +168,10 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      builder:
-          (context) => FractionallySizedBox(
-            heightFactor: 0.85,
-            child: AlarmEditScreen(alarmSettings: settings),
-          ),
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: AlarmEditScreen(alarmSettings: settings),
+      ),
     );
 
     if (res != null && res == true) unawaited(_loadAlarms());

@@ -15,10 +15,9 @@ class AlarmTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Dismissible(
     key: key!,
-    direction:
-        onDismissed != null
-            ? DismissDirection.endToStart
-            : DismissDirection.none,
+    direction: onDismissed != null
+        ? DismissDirection.endToStart
+        : DismissDirection.none,
     background: Container(
       color: Colors.red,
       alignment: Alignment.centerRight,

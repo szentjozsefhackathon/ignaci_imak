@@ -41,13 +41,12 @@ class _DataSyncPageState extends State<DataSyncPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: const Text('Adatok kezelése'),
-      bottom:
-          _serverVersions == null
-              ? const PreferredSize(
-                preferredSize: Size.fromHeight(4),
-                child: LinearProgressIndicator(),
-              )
-              : null,
+      bottom: _serverVersions == null
+          ? const PreferredSize(
+              preferredSize: Size.fromHeight(4),
+              child: LinearProgressIndicator(),
+            )
+          : null,
     ),
     body: RefreshIndicator(
       onRefresh: _checkForUpdates,
@@ -89,19 +88,18 @@ class _DataSyncPageState extends State<DataSyncPage> {
             ListTile(
               title: const Text('Adatok törlése'),
               enabled: _serverVersions != null,
-              onTap:
-                  _serverVersions == null
-                      ? null
-                      : () async {
-                        setState(() => _serverVersions = null);
-                        final dm = DataManager.instance;
-                        await dm.versions.deleteLocalData();
-                        await dm.images.deleteLocalData();
-                        await dm.voices.deleteLocalData();
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                        }
-                      },
+              onTap: _serverVersions == null
+                  ? null
+                  : () async {
+                      setState(() => _serverVersions = null);
+                      final dm = DataManager.instance;
+                      await dm.versions.deleteLocalData();
+                      await dm.images.deleteLocalData();
+                      await dm.voices.deleteLocalData();
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    },
             ),
         ],
       ),
@@ -207,14 +205,13 @@ class _DataSyncListItemState extends State<_DataSyncListItem> {
       title: Text(widget.title),
       subtitle: subtitle,
       enabled: !_loading && server != null && local != null,
-      trailing:
-          _loading
-              ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 3),
-              )
-              : null,
+      trailing: _loading
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 3),
+            )
+          : null,
       onTap: onTap,
     );
   }

@@ -55,14 +55,11 @@ class _AlarmRingScreenState extends State<AlarmRingScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               RawMaterialButton(
-                onPressed:
-                    () async => Alarm.set(
-                      alarmSettings: widget.alarmSettings.copyWith(
-                        dateTime: DateTime.now().add(
-                          const Duration(minutes: 1),
-                        ),
-                      ),
-                    ),
+                onPressed: () async => Alarm.set(
+                  alarmSettings: widget.alarmSettings.copyWith(
+                    dateTime: DateTime.now().add(const Duration(minutes: 1)),
+                  ),
+                ),
                 child: Text(
                   'Snooze',
                   style: Theme.of(context).textTheme.titleLarge,

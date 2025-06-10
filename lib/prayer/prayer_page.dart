@@ -227,9 +227,8 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
             controller: _pageViewController,
             itemCount: widget.prayer.steps.length,
             onPageChanged: (index) => _tabController.index = index,
-            itemBuilder:
-                (context, index) =>
-                    PrayerText(widget.prayer.steps[index].description),
+            itemBuilder: (context, index) =>
+                PrayerText(widget.prayer.steps[index].description),
           ),
         ),
         if (_remainingSeconds > 0)
@@ -252,22 +251,21 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       ],
     ),
     floatingActionButtonLocation: FloatingActionButtonLocation.miniEndFloat,
-    floatingActionButton:
-        _remainingSeconds <= 0
-            ? null
-            : AnimatedOpacity(
-              opacity: _isPaused ? 1.0 : .5,
-              duration: kThemeAnimationDuration,
-              child: FloatingActionButton(
-                mini: true,
-                onPressed: _togglePlayPause,
-                tooltip: _isRunning ? 'Szünet' : 'Folytatás',
-                child: AnimatedIcon(
-                  icon: AnimatedIcons.play_pause,
-                  progress: _fabAnimationController,
-                ),
+    floatingActionButton: _remainingSeconds <= 0
+        ? null
+        : AnimatedOpacity(
+            opacity: _isPaused ? 1.0 : .5,
+            duration: kThemeAnimationDuration,
+            child: FloatingActionButton(
+              mini: true,
+              onPressed: _togglePlayPause,
+              tooltip: _isRunning ? 'Szünet' : 'Folytatás',
+              child: AnimatedIcon(
+                icon: AnimatedIcons.play_pause,
+                progress: _fabAnimationController,
               ),
             ),
+          ),
   );
 
   void _togglePlayPause() {
@@ -344,10 +342,9 @@ class _PageIndicator extends StatelessWidget {
               IconButton(
                 splashRadius: 16,
                 padding: EdgeInsets.zero,
-                onPressed:
-                    currentPageIndex <= 0
-                        ? null
-                        : () => onUpdateCurrentPageIndex(currentPageIndex - 1),
+                onPressed: currentPageIndex <= 0
+                    ? null
+                    : () => onUpdateCurrentPageIndex(currentPageIndex - 1),
                 icon: const Icon(Icons.chevron_left_rounded),
                 tooltip: 'Előző oldal',
               ),
@@ -364,10 +361,9 @@ class _PageIndicator extends StatelessWidget {
               IconButton(
                 splashRadius: 16,
                 padding: EdgeInsets.zero,
-                onPressed:
-                    currentPageIndex >= tabController.length - 1
-                        ? null
-                        : () => onUpdateCurrentPageIndex(currentPageIndex + 1),
+                onPressed: currentPageIndex >= tabController.length - 1
+                    ? null
+                    : () => onUpdateCurrentPageIndex(currentPageIndex + 1),
                 icon: const Icon(Icons.chevron_right_rounded),
                 tooltip: 'Következő oldal',
               ),

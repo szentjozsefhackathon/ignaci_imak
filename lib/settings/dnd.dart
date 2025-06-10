@@ -108,12 +108,10 @@ class DndSwitchListTile extends StatelessWidget {
         ),
       ),
       isThreeLine: true,
-      onTap:
-          () =>
-              context
-                  .read<DndProvider>()
-                  ._dndPlugin
-                  .openNotificationPolicyAccessSettings(),
+      onTap: () => context
+          .read<DndProvider>()
+          ._dndPlugin
+          .openNotificationPolicyAccessSettings(),
     );
   }
 }

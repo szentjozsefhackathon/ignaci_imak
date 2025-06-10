@@ -47,13 +47,11 @@ class PrayerSearchDelegate extends SearchDelegate<PrayerSearchResult> {
         }
         return ListView.builder(
           itemCount: matches.length,
-          itemBuilder:
-              (context, index) => ListTile(
-                title: Text(matches[index].prayer.title),
-                subtitle:
-                    group == null ? Text(matches[index].group.title) : null,
-                onTap: () => Navigator.pop(context, matches[index]),
-              ),
+          itemBuilder: (context, index) => ListTile(
+            title: Text(matches[index].prayer.title),
+            subtitle: group == null ? Text(matches[index].group.title) : null,
+            onTap: () => Navigator.pop(context, matches[index]),
+          ),
         );
       },
     );

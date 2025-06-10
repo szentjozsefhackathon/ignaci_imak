@@ -28,24 +28,22 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
 
     // Find files to delete
     final serverFileNames = serverFiles.map((file) => file.name).toSet();
-    final filesToDelete =
-        localFiles
-            .where((file) => !serverFileNames.contains(file.name))
-            .toList();
+    final filesToDelete = localFiles
+        .where((file) => !serverFileNames.contains(file.name))
+        .toList();
     // Delete files
     await Future.forEach(filesToDelete, _deleteFile);
 
     // Find files to update
-    final filesToAddOrUpdate =
-        serverFiles.where((serverFile) {
-          // Find the corresponding local file
-          final localFile = localFiles.firstWhereOrNull(
-            (file) => file.name == serverFile.name,
-          );
-          // Check if the file does not exist locally or if the server file is newer
-          return localFile == null ||
-              serverFile.lastModified.isAfter(localFile.lastModified);
-        }).toList();
+    final filesToAddOrUpdate = serverFiles.where((serverFile) {
+      // Find the corresponding local file
+      final localFile = localFiles.firstWhereOrNull(
+        (file) => file.name == serverFile.name,
+      );
+      // Check if the file does not exist locally or if the server file is newer
+      return localFile == null ||
+          serverFile.lastModified.isAfter(localFile.lastModified);
+    }).toList();
 
     // Add or update files
     // TODO: how to reduce http requests?

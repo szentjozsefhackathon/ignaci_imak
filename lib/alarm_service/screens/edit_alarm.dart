@@ -86,10 +86,9 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
   }
 
   AlarmSettings buildAlarmSettings() {
-    final id =
-        creating
-            ? DateTime.now().millisecondsSinceEpoch % 10000 + 1
-            : widget.alarmSettings!.id;
+    final id = creating
+        ? DateTime.now().millisecondsSinceEpoch % 10000 + 1
+        : widget.alarmSettings!.id;
 
     final VolumeSettings volumeSettings;
     if (staircaseFade) {
@@ -168,15 +167,14 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
             ),
             TextButton(
               onPressed: saveAlarm,
-              child:
-                  loading
-                      ? const CircularProgressIndicator()
-                      : Text(
-                        'Save',
-                        style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                          color: Colors.blueAccent,
-                        ),
+              child: loading
+                  ? const CircularProgressIndicator()
+                  : Text(
+                      'Save',
+                      style: Theme.of(context).textTheme.titleLarge!.copyWith(
+                        color: Colors.blueAccent,
                       ),
+                    ),
             ),
           ],
         ),
@@ -306,12 +304,11 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
                   child: Text('${index * 5}s'),
                 ),
               ),
-              onChanged:
-                  (value) => setState(
-                    () =>
-                        fadeDuration =
-                            value != null ? Duration(seconds: value) : null,
-                  ),
+              onChanged: (value) => setState(
+                () => fadeDuration = value != null
+                    ? Duration(seconds: value)
+                    : null,
+              ),
             ),
           ],
         ),

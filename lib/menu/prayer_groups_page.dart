@@ -64,17 +64,16 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
       unawaited(
         showDialog(
           context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Hiba történt'),
-                content: Text(error),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Bezárás'),
-                  ),
-                ],
+          builder: (context) => AlertDialog(
+            title: const Text('Hiba történt'),
+            content: Text(error),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Bezárás'),
               ),
+            ],
+          ),
         ),
       );
     }
@@ -105,12 +104,11 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
             ),
             elevation: 4,
             child: InkWell(
-              onTap:
-                  () => Navigator.pushNamed(
-                    context,
-                    Routes.prayers(item),
-                    arguments: item,
-                  ),
+              onTap: () => Navigator.pushNamed(
+                context,
+                Routes.prayers(item),
+                arguments: item,
+              ),
               child: Stack(
                 children: [
                   Positioned.fill(child: PrayerImage(name: item.image)),
@@ -181,9 +179,8 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed:
-                () =>
-                    setState(() => _notification = _DataSyncNotification.none),
+            onPressed: () =>
+                setState(() => _notification = _DataSyncNotification.none),
             child: const Text('Elrejtés'),
           ),
           TextButton(
