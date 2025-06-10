@@ -37,7 +37,6 @@ class Notifications with ChangeNotifier {
       priority: Priority.high,
       importance: _androidChannel.importance,
       category: AndroidNotificationCategory.reminder,
-      autoCancel: true,
     ),
     iOS: const DarwinNotificationDetails(),
     macOS: const DarwinNotificationDetails(),
