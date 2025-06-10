@@ -89,11 +89,10 @@ class Notifications with ChangeNotifier {
   Future<bool?> _checkPermissions() async {
     bool? result;
     if (Platform.isAndroid) {
-      final impl =
-          _n
-              .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin
-              >();
+      final impl = _n
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       result = await impl?.areNotificationsEnabled();
       if (result == true) {
         result = await impl?.canScheduleExactNotifications();
@@ -123,11 +122,10 @@ class Notifications with ChangeNotifier {
   Future<bool?> requestPermissions() async {
     bool? result;
     if (Platform.isAndroid) {
-      final impl =
-          _n
-              .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin
-              >();
+      final impl = _n
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       result = await impl?.requestNotificationsPermission();
       if (result == true) {
         result = await impl?.requestExactAlarmsPermission();
@@ -385,22 +383,21 @@ class _AddBottomSheetState extends State<_AddBottomSheet> {
             spacing: 8,
             children: [
               PopupMenuButton(
-                itemBuilder:
-                    (_) => DateTimeComponents.values
-                        .map(
-                          (d) => PopupMenuItem(
-                            value: d,
-                            child: Text(_kRepeatTypes[d]!),
-                          ),
-                        )
-                        .toList(growable: false),
+                itemBuilder: (_) => DateTimeComponents.values
+                    .map(
+                      (d) => PopupMenuItem(
+                        value: d,
+                        child: Text(_kRepeatTypes[d]!),
+                      ),
+                    )
+                    .toList(growable: false),
                 onSelected: (d) => setState(() => _repeat = d),
                 child: Chip(label: Text(_kRepeatTypes[_repeat]!)),
               ),
               if (_repeat == DateTimeComponents.dateAndTime)
                 PopupMenuButton(
-                  itemBuilder:
-                      (_) => List.generate(DateTime.monthsPerYear, (i) => i + 1)
+                  itemBuilder: (_) =>
+                      List.generate(DateTime.monthsPerYear, (i) => i + 1)
                           .map(
                             (month) => PopupMenuItem(
                               value: month,
@@ -410,19 +407,18 @@ class _AddBottomSheetState extends State<_AddBottomSheet> {
                           .toList(growable: false),
                   onSelected: (month) {
                     setState(
-                      () =>
-                          _dateTime = TZDateTime.from(
-                            _dateTime.copyWith(month: month),
-                            local,
-                          ),
+                      () => _dateTime = TZDateTime.from(
+                        _dateTime.copyWith(month: month),
+                        local,
+                      ),
                     );
                   },
                   child: Chip(label: Text(_monthLabel())),
                 ),
               if (_repeat == DateTimeComponents.dayOfWeekAndTime)
                 PopupMenuButton(
-                  itemBuilder:
-                      (_) => List.generate(
+                  itemBuilder: (_) =>
+                      List.generate(
                             DateTime.daysPerWeek,
                             (i) => i + ml.firstDayOfWeekIndex,
                           )
@@ -435,11 +431,10 @@ class _AddBottomSheetState extends State<_AddBottomSheet> {
                           .toList(growable: false),
                   onSelected: (offset) {
                     setState(
-                      () =>
-                          _dateTime = TZDateTime.from(
-                            _dateTime.copyWithWeekday(offset),
-                            local,
-                          ),
+                      () => _dateTime = TZDateTime.from(
+                        _dateTime.copyWithWeekday(offset),
+                        local,
+                      ),
                     );
                   },
                   child: Chip(label: Text(_weekdayLabel())),
@@ -448,22 +443,18 @@ class _AddBottomSheetState extends State<_AddBottomSheet> {
                   _repeat == DateTimeComponents.dateAndTime)
                 _chipWithText(
                   PopupMenuButton(
-                    itemBuilder:
-                        (_) => List.generate(31, (i) => i + 1)
-                            .map(
-                              (day) => PopupMenuItem(
-                                value: day,
-                                child: Text('$day.'),
-                              ),
-                            )
-                            .toList(growable: false),
+                    itemBuilder: (_) => List.generate(31, (i) => i + 1)
+                        .map(
+                          (day) =>
+                              PopupMenuItem(value: day, child: Text('$day.')),
+                        )
+                        .toList(growable: false),
                     onSelected: (day) {
                       setState(
-                        () =>
-                            _dateTime = TZDateTime.from(
-                              _dateTime.copyWith(day: day),
-                              local,
-                            ),
+                        () => _dateTime = TZDateTime.from(
+                          _dateTime.copyWith(day: day),
+                          local,
+                        ),
                       );
                     },
                     child: Chip(label: Text('${_dateTime.day}.')),
@@ -479,14 +470,13 @@ class _AddBottomSheetState extends State<_AddBottomSheet> {
                     );
                     if (mounted && timeOfDay != null) {
                       setState(
-                        () =>
-                            _dateTime = TZDateTime.from(
-                              _dateTime.copyWith(
-                                hour: timeOfDay.hour,
-                                minute: timeOfDay.minute,
-                              ),
-                              local,
-                            ),
+                        () => _dateTime = TZDateTime.from(
+                          _dateTime.copyWith(
+                            hour: timeOfDay.hour,
+                            minute: timeOfDay.minute,
+                          ),
+                          local,
+                        ),
                       );
                     }
                   },
@@ -506,14 +496,10 @@ class _AddBottomSheetState extends State<_AddBottomSheet> {
                 child: Text(ml.cancelButtonLabel),
               ),
               TextButton(
-                onPressed:
-                    () => Navigator.pop(
-                      context,
-                      _AddBottomSheetResult(
-                        dateTime: _dateTime,
-                        repeat: _repeat,
-                      ),
-                    ),
+                onPressed: () => Navigator.pop(
+                  context,
+                  _AddBottomSheetResult(dateTime: _dateTime, repeat: _repeat),
+                ),
                 child: Text(ml.okButtonLabel),
               ),
             ],
