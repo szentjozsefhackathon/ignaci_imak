@@ -46,9 +46,9 @@ class Routes {
         kIsWeb
             ? onUnknownRoute(s)
             : MaterialPageRoute(
-              settings: s,
-              builder: (context) => const DataSyncPage(),
-            ),
+                settings: s,
+                builder: (context) => const DataSyncPage(),
+              ),
       impressum => MaterialPageRoute(
         settings: s,
         builder: (context) => const ImpressumPage(),
@@ -161,8 +161,8 @@ class _NotFoundPage extends StatelessWidget {
         children: [
           const Text('Nincs ilyen oldal'),
           TextButton(
-            onPressed:
-                () => Navigator.pushReplacementNamed(context, Routes.home),
+            onPressed: () =>
+                Navigator.pushReplacementNamed(context, Routes.home),
             child: const Text('Kezdőoldal'),
           ),
         ],

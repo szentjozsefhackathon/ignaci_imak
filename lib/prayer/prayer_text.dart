@@ -6,14 +6,18 @@ class PrayerText extends StatelessWidget {
     this.text, {
     super.key,
     this.minFontSize = 12,
-    this.maxFontSize = 24,
+    this.maxFontSize = kDefaultFontSize,
     this.stepGranularity = 1,
     this.textAlign = TextAlign.center,
     this.style = kDefaultStyle,
     this.padding = kDefaultPadding,
   });
 
-  static const kDefaultStyle = TextStyle(fontSize: 24, height: 1.5);
+  static const kDefaultFontSize = 24.0;
+  static const kDefaultStyle = TextStyle(
+    fontSize: kDefaultFontSize,
+    height: 1.5,
+  );
   static const kDefaultPadding = EdgeInsets.all(38);
 
   final String text;

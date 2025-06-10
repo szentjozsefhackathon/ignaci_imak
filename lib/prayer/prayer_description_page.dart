@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/prayer.dart';
 import '../data/prayer_group.dart';
-import 'prayer_image.dart';
+import 'prayer_app_bar.dart';
 import 'prayer_settings_page.dart';
 import 'prayer_text.dart';
 
@@ -18,61 +18,39 @@ class PrayerDescriptionPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
+    final appBarOptions = PrayerAppBarOptions(context, true);
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar.large(
-            expandedHeight: screenSize.height * 0.3,
-            flexibleSpace: FlexibleSpaceBar(
-              title:
-                  screenSize.width > 600
-                      ? Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(text: group.title),
-                            TextSpan(
-                              text: ' / ',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
-                            ),
-                            TextSpan(text: prayer.title),
-                          ],
-                        ),
-                      )
-                      : Text(prayer.title),
-              background: PrayerImage(
-                name: prayer.image,
-                opacity: const AlwaysStoppedAnimation(.3),
-                errorBuilder: null,
-              ),
-              collapseMode: CollapseMode.parallax,
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: PrayerText(
-              prayer.description,
-              padding: const EdgeInsets.fromLTRB(
-                16,
-                32,
-                16,
-                kMinInteractiveDimension * 2,
-              ),
-            ),
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          PrayerAppBar.prayer(
+            group: group,
+            prayer: prayer,
+            options: appBarOptions,
           ),
         ],
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            32,
+            16,
+            kMinInteractiveDimension * 2,
+          ),
+          child: PrayerText(
+            prayer.description,
+            minFontSize: PrayerText.kDefaultFontSize,
+            padding: EdgeInsets.zero,
+          ),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
-        onPressed:
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PrayerSettingsPage(prayer: prayer),
-              ),
-            ),
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PrayerSettingsPage(prayer: prayer),
+          ),
+        ),
         tooltip: 'Ima beállítása',
         child: const Icon(Icons.check_rounded),
       ),

@@ -61,27 +61,26 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
                     SwitchListTile(
                       title: const Text('Hang'),
                       value: settings.prayerSoundEnabled && data.isNotEmpty,
-                      onChanged:
-                          data.isNotEmpty
-                              ? (v) => settings.prayerSoundEnabled = v
-                              : null,
+                      onChanged: data.isNotEmpty
+                          ? (v) => settings.prayerSoundEnabled = v
+                          : null,
                     ),
                     ...widget.prayer.voiceOptions.map((voice) {
                       final available = data.contains(voice);
                       return RadioListTile(
                         title: Text(voice),
-                        subtitle:
-                            available ? null : const Text('Nincs letöltve'),
+                        subtitle: available
+                            ? null
+                            : const Text('Nincs letöltve'),
                         value: voice,
                         groupValue: settings.voiceChoice,
-                        onChanged:
-                            settings.prayerSoundEnabled && available
-                                ? (String? v) {
-                                  if (v != null) {
-                                    settings.voiceChoice = v;
-                                  }
+                        onChanged: settings.prayerSoundEnabled && available
+                            ? (String? v) {
+                                if (v != null) {
+                                  settings.voiceChoice = v;
                                 }
-                                : null,
+                              }
+                            : null,
                       );
                     }),
                   ],
@@ -99,20 +98,20 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
                   var length = settings.prayerLength;
                   return AlertDialog(
                     title: const Text('Ima hossza'),
+                    contentPadding: const EdgeInsets.fromLTRB(8, 32, 8, 0),
                     content: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         StatefulBuilder(
-                          builder:
-                              (context, setState) => Slider(
-                                value: length.toDouble(),
-                                min: widget.prayer.minTimeInMinutes.toDouble(),
-                                max: 60,
-                                divisions: 60 - widget.prayer.minTimeInMinutes,
-                                label: '$length perc',
-                                onChanged:
-                                    (v) => setState(() => length = v.toInt()),
-                              ),
+                          builder: (context, setState) => Slider(
+                            value: length.toDouble(),
+                            min: widget.prayer.minTimeInMinutes.toDouble(),
+                            max: 60,
+                            divisions: 60 - widget.prayer.minTimeInMinutes,
+                            label: '$length perc',
+                            onChanged: (v) =>
+                                setState(() => length = v.toInt()),
+                          ),
                         ),
                       ],
                     ),
@@ -142,13 +141,12 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
-        onPressed:
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PrayerPage(prayer: widget.prayer),
-              ),
-            ),
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PrayerPage(prayer: widget.prayer),
+          ),
+        ),
         tooltip: 'Ima indítása',
         child: const Icon(Icons.play_arrow_rounded),
       ),

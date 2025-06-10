@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
+import 'package:vibration/vibration.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../data/prayer.dart';
 import '../data/prayer_step.dart';
@@ -61,8 +63,6 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       setState(() => _currentPage = _tabController.index);
       if (_settings.prayerSoundEnabled) {
         _pageAudioPlayer();
-      } else if (_currentPage > 0 && _settings.autoPageTurn) {
-        // Vibration.vibrate(duration: 500);
       }
     });
   }
@@ -75,6 +75,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _audioPlayer.dispose();
     _timer?.cancel();
     _pageViewController.dispose();
@@ -89,6 +90,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     if (_settings.dnd) {
       context.read<DndProvider>().allowAlarmsOnly();
     }
+    WakelockPlus.enable();
     if (_settings.prayerSoundEnabled) {
       _pageAudioPlayer();
     }
@@ -108,6 +110,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
               // we're not going back
               if (pageIndex > _currentPage) {
                 _updateCurrentPageIndex(pageIndex);
+                _vibrateIfNoSound();
               }
               break;
             }
@@ -117,6 +120,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
         setState(() {});
       }
       if (_remainingSeconds <= 0) {
+        timer.cancel();
         _onTimerFinish();
       }
     });
@@ -124,17 +128,24 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
 
   Future<void> _onTimerFinish() async {
     setState(() => _isRunning = false);
-    await _audioPlayer.pause();
-    await _loadAudio('csengo.mp3');
-    await _audioPlayer.setVolume(1);
-    await _audioPlayer.play();
-    // Vibration.vibrate(duration: 500);
+    if (_settings.prayerSoundEnabled) {
+      await _audioPlayer.pause();
+      await _loadAudio('csengo.mp3');
+      await _audioPlayer.setVolume(1);
+      await _audioPlayer.play();
+    }
+    _vibrateIfNoSound();
+    await WakelockPlus.disable();
     if (mounted) {
       await context.read<DndProvider>().restoreOriginal();
-      await Future.delayed(const Duration(seconds: 1));
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      _close();
+    }
+  }
+
+  void _close() {
+    if (mounted) {
+      int count = 0;
+      Navigator.popUntil(context, (_) => count++ >= 2);
     }
   }
 
@@ -202,7 +213,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      leading: const CloseButton(),
+      leading: CloseButton(onPressed: _close),
       title: AnimatedOpacity(
         opacity: _isPaused ? 1.0 : .4,
         duration: kThemeAnimationDuration,
@@ -216,122 +227,150 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
             controller: _pageViewController,
             itemCount: widget.prayer.steps.length,
             onPageChanged: (index) => _tabController.index = index,
-            itemBuilder:
-                (context, index) =>
-                    PrayerText(widget.prayer.steps[index].description),
+            itemBuilder: (context, index) =>
+                PrayerText(widget.prayer.steps[index].description),
           ),
         ),
-        AnimatedOpacity(
-          opacity: _isPaused ? 1.0 : .5,
-          duration: kThemeAnimationDuration,
-          child: Text(
-            "Hátralévő idő: ${_remainingSeconds ~/ 60}:${(_remainingSeconds % 60).toString().padLeft(2, '0')}",
+        if (_remainingSeconds > 0)
+          AnimatedOpacity(
+            opacity: _isPaused ? 1.0 : .5,
+            duration: kThemeAnimationDuration,
+            child: Text(
+              "Hátralévő idő: ${_remainingSeconds ~/ 60}:${(_remainingSeconds % 60).toString().padLeft(2, '0')}",
+            ),
           ),
-        ),
         Opacity(
           opacity: .25,
-          child: PageIndicator(
+          child: _PageIndicator(
             tabController: _tabController,
             currentPageIndex: _currentPage,
             onUpdateCurrentPageIndex: _updateCurrentPageIndex,
+            hasFab: _remainingSeconds > 0,
           ),
         ),
       ],
     ),
     floatingActionButtonLocation: FloatingActionButtonLocation.miniEndFloat,
-    floatingActionButton: AnimatedOpacity(
-      opacity: _isPaused ? 1.0 : .5,
-      duration: kThemeAnimationDuration,
-      child: FloatingActionButton(
-        mini: true,
-        onPressed: _togglePlayPause,
-        tooltip: _isRunning ? 'Szünet' : 'Folytatás',
-        child: AnimatedIcon(
-          icon: AnimatedIcons.play_pause,
-          progress: _fabAnimationController,
-        ),
-      ),
-    ),
+    floatingActionButton: _remainingSeconds <= 0
+        ? null
+        : AnimatedOpacity(
+            opacity: _isPaused ? 1.0 : .5,
+            duration: kThemeAnimationDuration,
+            child: FloatingActionButton(
+              mini: true,
+              onPressed: _togglePlayPause,
+              tooltip: _isRunning ? 'Szünet' : 'Folytatás',
+              child: AnimatedIcon(
+                icon: AnimatedIcons.play_pause,
+                progress: _fabAnimationController,
+              ),
+            ),
+          ),
   );
 
   void _togglePlayPause() {
-    setState(() {
-      if (_isRunning) {
-        _audioPlayer.pause();
-        _isPaused = true;
-        _isRunning = false;
-        _fabAnimationController.reverse();
-      } else {
-        _isPaused = false;
-        _startTimer();
-        _audioPlayer.play();
-        _fabAnimationController.forward();
-      }
-    });
+    if (_isRunning) {
+      _audioPlayer.pause();
+      _isPaused = true;
+      _isRunning = false;
+      _fabAnimationController.reverse();
+    } else {
+      _isPaused = false;
+      _startTimer();
+      _audioPlayer.play();
+      _fabAnimationController.forward();
+    }
+    WakelockPlus.toggle(enable: !_isPaused);
+    setState(() {});
   }
 
-  void _updateCurrentPageIndex(int index) {
+  Future<void> _updateCurrentPageIndex(int index) async {
     _tabController.index = index;
-    _pageViewController.animateToPage(
+    await _pageViewController.animateToPage(
       index,
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
     );
   }
+
+  void _vibrateIfNoSound() {
+    if (kIsWeb) {
+      return;
+    }
+    if (widget.prayer.voiceOptions.isEmpty || !_settings.prayerSoundEnabled) {
+      Vibration.vibrate();
+    }
+  }
 }
 
-class PageIndicator extends StatelessWidget {
-  const PageIndicator({
-    super.key,
+class _PageIndicator extends StatelessWidget {
+  const _PageIndicator({
     required this.tabController,
     required this.currentPageIndex,
     required this.onUpdateCurrentPageIndex,
+    required this.hasFab,
   });
 
   final int currentPageIndex;
   final TabController tabController;
   final void Function(int) onUpdateCurrentPageIndex;
+  final bool hasFab;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            splashRadius: 16,
-            padding: EdgeInsets.zero,
-            onPressed: () {
-              if (currentPageIndex == 0) {
-                return;
-              }
-              onUpdateCurrentPageIndex(currentPageIndex - 1);
-            },
-            icon: const Icon(Icons.chevron_left_rounded),
-            tooltip: 'Előző oldal',
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double left = 8;
+        double right = 8;
+        if (hasFab) {
+          // length +1 for buttons
+          if (constraints.maxWidth > ((tabController.length + 1) * 32)) {
+            left += kMinInteractiveDimension;
+          }
+
+          // safe area for mini FAB
+          right += kMinInteractiveDimension;
+        }
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(left, 8, right, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                splashRadius: 16,
+                padding: EdgeInsets.zero,
+                onPressed: currentPageIndex <= 0
+                    ? null
+                    : () => onUpdateCurrentPageIndex(currentPageIndex - 1),
+                icon: const Icon(Icons.chevron_left_rounded),
+                tooltip: 'Előző oldal',
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: TabPageSelector(
+                    controller: tabController,
+                    color: colorScheme.surface,
+                    selectedColor: colorScheme.primary,
+                  ),
+                ),
+              ),
+              IconButton(
+                splashRadius: 16,
+                padding: EdgeInsets.zero,
+                onPressed: currentPageIndex >= tabController.length - 1
+                    ? null
+                    : () => onUpdateCurrentPageIndex(currentPageIndex + 1),
+                icon: const Icon(Icons.chevron_right_rounded),
+                tooltip: 'Következő oldal',
+              ),
+            ],
           ),
-          TabPageSelector(
-            controller: tabController,
-            color: colorScheme.surface,
-            selectedColor: colorScheme.primary,
-          ),
-          IconButton(
-            splashRadius: 16,
-            padding: EdgeInsets.zero,
-            onPressed: () {
-              if (currentPageIndex == tabController.length - 1) {
-                return;
-              }
-              onUpdateCurrentPageIndex(currentPageIndex + 1);
-            },
-            icon: const Icon(Icons.chevron_right_rounded),
-            tooltip: 'Következő oldal',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -54,10 +54,9 @@ class PrayerImage extends StatelessWidget {
     }
     return Center(
       child: CircularProgressIndicator(
-        value:
-            event.expectedTotalBytes != null
-                ? event.cumulativeBytesLoaded / event.expectedTotalBytes!
-                : null,
+        value: event.expectedTotalBytes != null
+            ? event.cumulativeBytesLoaded / event.expectedTotalBytes!
+            : null,
       ),
     );
   }

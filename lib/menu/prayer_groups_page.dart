@@ -7,6 +7,7 @@ import '../data/common.dart';
 import '../data/prayer_group.dart';
 import '../data_handlers/data_manager.dart';
 import '../prayer/prayer_image.dart';
+import '../prayer/search.dart';
 import '../routes.dart';
 
 class PrayerGroupsPage extends StatefulWidget {
@@ -63,17 +64,16 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
       unawaited(
         showDialog(
           context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Hiba történt'),
-                content: Text(error),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Bezárás'),
-                  ),
-                ],
+          builder: (context) => AlertDialog(
+            title: const Text('Hiba történt'),
+            content: Text(error),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Bezárás'),
               ),
+            ],
+          ),
         ),
       );
     }
@@ -88,29 +88,27 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
     } else {
       final grid = GridView.builder(
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 350,
-          mainAxisSpacing: 8,
           mainAxisExtent: 200,
+          mainAxisSpacing: 8,
+          maxCrossAxisExtent: 200,
           crossAxisSpacing: 8,
         ),
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(16),
         itemCount: items.length,
         itemBuilder: (context, index) {
           final item = items[index];
           return Card(
-            semanticContainer: true,
             clipBehavior: Clip.antiAliasWithSaveLayer,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
             elevation: 4,
             child: InkWell(
-              onTap:
-                  () => Navigator.pushNamed(
-                    context,
-                    Routes.prayers(item),
-                    arguments: item,
-                  ),
+              onTap: () => Navigator.pushNamed(
+                context,
+                Routes.prayers(item),
+                arguments: item,
+              ),
               child: Stack(
                 children: [
                   Positioned.fill(child: PrayerImage(name: item.image)),
@@ -155,9 +153,11 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ignáci imák'),
         automaticallyImplyLeading: false,
+        title: const Text('Ignáci imák'),
+        titleSpacing: NavigationToolbar.kMiddleSpacing,
         actions: [
+          const PrayerSearchIconButton(),
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Beállítások',
@@ -179,9 +179,8 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed:
-                () =>
-                    setState(() => _notification = _DataSyncNotification.none),
+            onPressed: () =>
+                setState(() => _notification = _DataSyncNotification.none),
             child: const Text('Elrejtés'),
           ),
           TextButton(

@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id "com.android.application"
     id "kotlin-android"
@@ -5,9 +8,16 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "hu.jezsuita.ima.ignaci"
     compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -23,19 +33,28 @@ android {
         applicationId = "hu.jezsuita.ima.ignaci"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
+
         //minSdk = flutter.minSdkVersion
-        minSdk = 23 // for do_not_disturb
+        minSdk = 23 // do_not_disturb plugin requires this: https://github.com/nateshmbhat/flutter_do_not_disturb/blob/main/android/build.gradle
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
     }
 
+    signingConfigs {
+        release {
+           keyAlias = keystoreProperties['keyAlias']
+           keyPassword = keystoreProperties['keyPassword']
+           storeFile = keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+           storePassword = keystoreProperties['storePassword']
+       }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            // signingConfig = signingConfigs.debug
+            signingConfig = signingConfigs.release
         }
     }
 }

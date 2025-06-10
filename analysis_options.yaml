@@ -23,6 +23,7 @@ linter:
   rules:
     always_declare_return_types: true
     always_specify_types: false
+    avoid_redundant_argument_values: true
     cancel_subscriptions: true
     directives_ordering: true
     prefer_const_constructors: true

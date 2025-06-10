@@ -1,4 +1,5 @@
 import 'package:do_not_disturb/do_not_disturb.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +19,9 @@ class DndProvider extends ChangeNotifier with WidgetsBindingObserver {
   InterruptionFilter? _statusBeforeEnable;
 
   Future<void> _checkAccess() async {
+    if (kIsWeb) {
+      return;
+    }
     bool? hasAccess;
     try {
       hasAccess = await _dndPlugin.isNotificationPolicyAccessGranted();
@@ -31,6 +35,9 @@ class DndProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> allowAlarmsOnly() async {
+    if (kIsWeb) {
+      return;
+    }
     if (_hasAccess ?? false) {
       _statusBeforeEnable = await _dndPlugin.getDNDStatus();
       await _dndPlugin.setInterruptionFilter(InterruptionFilter.alarms);
@@ -101,12 +108,10 @@ class DndSwitchListTile extends StatelessWidget {
         ),
       ),
       isThreeLine: true,
-      onTap:
-          () =>
-              context
-                  .read<DndProvider>()
-                  ._dndPlugin
-                  .openNotificationPolicyAccessSettings(),
+      onTap: () => context
+          .read<DndProvider>()
+          ._dndPlugin
+          .openNotificationPolicyAccessSettings(),
     );
   }
 }
