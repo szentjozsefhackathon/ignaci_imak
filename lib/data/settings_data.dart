@@ -17,16 +17,14 @@ class SettingsData extends ChangeNotifier implements DataDescriptor {
   SettingsData({
     ThemeMode themeMode = ThemeMode.system,
     bool dnd = !kIsWeb,
-    bool dailyNotifier = !kIsWeb,
-    TimeOfDay dailyNotifierTime = const TimeOfDay(hour: 8, minute: 0),
+    bool reminderNotifications = !kIsWeb,
     bool autoPageTurn = true,
     int prayerLength = 30,
     bool prayerSoundEnabled = true,
     String voiceChoice = 'Férfi 2',
   }) : _themeMode = themeMode,
        _dnd = dnd,
-       _dailyNotifier = dailyNotifier,
-       _dailyNotifierTime = dailyNotifierTime,
+       _reminderNotifications = reminderNotifications,
        _autoPageTurn = autoPageTurn,
        _prayerLength = prayerLength,
        _prayerSoundEnabled = prayerSoundEnabled,
@@ -59,28 +57,14 @@ class SettingsData extends ChangeNotifier implements DataDescriptor {
     }
   }
 
-  bool _dailyNotifier;
-  bool get dailyNotifier => _dailyNotifier;
-  set dailyNotifier(bool newValue) {
+  bool _reminderNotifications;
+  bool get reminderNotifications => _reminderNotifications;
+  set reminderNotifications(bool newValue) {
     if (kIsWeb) {
       return;
     }
-    if (_dailyNotifier != newValue) {
-      _dailyNotifier = newValue;
-      save();
-      notifyListeners();
-    }
-  }
-
-  TimeOfDay _dailyNotifierTime;
-  @TimeOfDayConverter()
-  TimeOfDay get dailyNotifierTime => _dailyNotifierTime;
-  set dailyNotifierTime(TimeOfDay newValue) {
-    if (kIsWeb) {
-      return;
-    }
-    if (_dailyNotifierTime != newValue) {
-      _dailyNotifierTime = newValue;
+    if (_reminderNotifications != newValue) {
+      _reminderNotifications = newValue;
       save();
       notifyListeners();
     }
@@ -146,8 +130,7 @@ class SettingsData extends ChangeNotifier implements DataDescriptor {
       }
       _themeMode = newData.themeMode;
       _dnd = newData.dnd;
-      _dailyNotifier = newData.dailyNotifier;
-      _dailyNotifierTime = newData.dailyNotifierTime;
+      _reminderNotifications = newData.reminderNotifications;
       _autoPageTurn = newData.autoPageTurn;
       _prayerLength = newData.prayerLength;
       _prayerSoundEnabled = newData.prayerSoundEnabled;
@@ -165,20 +148,4 @@ class SettingsData extends ChangeNotifier implements DataDescriptor {
     await prefs.setString(_kUserSettings, jsonString);
     log.info('User preferences are saved to storage');
   }
-}
-
-class TimeOfDayConverter implements JsonConverter<TimeOfDay, String> {
-  const TimeOfDayConverter();
-
-  @override
-  TimeOfDay fromJson(String json) {
-    final [hour, minute] = json.split(':').map(int.parse).toList();
-    return TimeOfDay(hour: hour, minute: minute);
-  }
-
-  @override
-  String toJson(TimeOfDay object) => [
-    object.hour,
-    object.minute,
-  ].map((n) => n.toString().padLeft(2, '0')).join(':');
 }
