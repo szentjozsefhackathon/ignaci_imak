@@ -7,6 +7,7 @@ import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 import 'package:relative_time/relative_time.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:sentry_logging/sentry_logging.dart';
 
 import 'data/settings_data.dart';
 import 'notifications.dart';
@@ -36,6 +37,7 @@ void main() async {
     // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
     options.sendDefaultPii = true;
     options.enableLogs = true;
+    options.addIntegration(LoggingIntegration());
     options.enableTimeToFullDisplayTracing = true;
     options.tracesSampleRate =
         double.tryParse(
