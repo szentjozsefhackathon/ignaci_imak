@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+// https://konyvjelzo.jezsuita.hu/arculat/
+const kColorSchemeSeed = Color(0xffba0527);
+
 class AppTheme {
   AppTheme._();
 
