@@ -2,9 +2,10 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:http/http.dart' as http;
+import 'package:http/http.dart' show BaseClient;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../data/common.dart';
 import '../data/media_data.dart';
@@ -48,12 +49,16 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
     // Add or update files
     // TODO: how to reduce http requests?
     bool success = true;
+    final client = SentryHttpClient(
+      failedRequestStatusCodes: [SentryStatusCode.range(201, 599)],
+    );
     for (final file in filesToAddOrUpdate) {
-      success &= await _downloadAndSaveFile(file);
+      success &= await _downloadAndSaveFile(file, client);
       if (!success && stopOnError) {
-        return false;
+        break;
       }
     }
+    client.close();
     return success;
   }
 
@@ -85,9 +90,9 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
 
   Uri getDownloadUri(String name) => Uri.parse(mediaApiUrl(dataKey, name));
 
-  Future<bool> _downloadAndSaveFile(MediaData m) async {
+  Future<bool> _downloadAndSaveFile(MediaData m, BaseClient client) async {
     try {
-      final response = await http.get(getDownloadUri(m.name));
+      final response = await client.get(getDownloadUri(m.name));
       if (response.statusCode == 200) {
         final file = await _getLocalFile(m.name, checkExists: false);
         await file.writeAsBytes(response.bodyBytes);
@@ -99,8 +104,8 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
           'Failed to download $m, status code: ${response.statusCode}',
         );
       }
-    } catch (e) {
-      log.severe('Error during sync $m: $e');
+    } catch (e, s) {
+      log.severe('Error during sync $m: $e', e, s);
     }
     return false;
   }
@@ -112,10 +117,10 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
       if (file.existsSync()) {
         await file.delete();
       }
-      //log.severe('Deleted file $m at ${file.path}');
+      //log.info('Deleted file $m at ${file.path}');
       return true;
-    } catch (e) {
-      log.severe('Error deleting file $m: $e');
+    } catch (e, s) {
+      log.severe('Error deleting file $m: $e', e, s);
     }
     return false;
   }
