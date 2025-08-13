@@ -15,7 +15,7 @@ import 'settings/dnd.dart' show DndProvider;
 import 'theme.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  SentryWidgetsFlutterBinding.ensureInitialized();
 
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
