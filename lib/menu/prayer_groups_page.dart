@@ -2,6 +2,7 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../data/common.dart';
 import '../data/prayer_group.dart';
@@ -27,6 +28,7 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
   void initState() {
     super.initState();
     _loadData();
+    SentryFlutter.currentDisplay()?.reportFullyDisplayed();
   }
 
   Future<void> _loadData() async {
