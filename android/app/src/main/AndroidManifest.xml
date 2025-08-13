@@ -1,9 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <!-- https://pub.dev/packages/do_not_disturb#permissions-and-setup -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
+    <!-- https://pub.dev/packages/flutter_local_notifications#androidmanifestxml-setup -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- https://pub.dev/packages/vibration#android -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
 
     <application
         android:label="Ignáci imák"
