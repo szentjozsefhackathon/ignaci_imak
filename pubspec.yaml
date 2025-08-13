@@ -57,6 +57,7 @@ dependencies:
   provider: ^6.1.5
   relative_time: ^5.0.0
   sentry_flutter: ^9.6.0
+  sentry_logging: ^9.6.0
   shared_preferences: ^2.5.3
   slugify: ^2.0.0
   timezone: ^0.10.1
