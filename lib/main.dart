@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 import 'package:relative_time/relative_time.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'data/settings_data.dart';
 import 'notifications.dart';
@@ -26,7 +27,38 @@ void main() async {
   }
   Intl.defaultLocale = 'hu';
 
-  runApp(const IgnacioPrayersApp());
+  await SentryFlutter.init((options) {
+    options.dsn = const String.fromEnvironment('SENTRY_DSN');
+    options.environment = const String.fromEnvironment(
+      'SENTRY_ENVIRONMENT',
+      defaultValue: 'dev',
+    );
+    // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
+    options.sendDefaultPii = true;
+    options.enableLogs = true;
+    options.tracesSampleRate =
+        double.tryParse(
+          const String.fromEnvironment('SENTRY_TRACES_SAMPLE_RATE'),
+        ) ??
+        1.0;
+    options.profilesSampleRate =
+        double.tryParse(
+          const String.fromEnvironment('SENTRY_PROFILES_SAMPLE_RATE'),
+        ) ??
+        1.0;
+    options.replay.sessionSampleRate =
+        double.tryParse(
+          const String.fromEnvironment('SENTRY_SESSION_SAMPLE_RATE'),
+        ) ??
+        0.1;
+    options.replay.onErrorSampleRate =
+        double.tryParse(
+          const String.fromEnvironment('SENTRY_ON_ERROR_SAMPLE_RATE'),
+        ) ??
+        1.0;
+  }, appRunner: () => runApp(SentryWidget(child: const IgnacioPrayersApp())));
+  // TODO: Remove this line after sending the first sample event to sentry.
+  await Sentry.captureException(StateError('This is a sample exception.'));
 }
 
 class IgnacioPrayersApp extends StatelessWidget {
