@@ -36,6 +36,7 @@ void main() async {
     // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
     options.sendDefaultPii = true;
     options.enableLogs = true;
+    options.enableTimeToFullDisplayTracing = true;
     options.tracesSampleRate =
         double.tryParse(
           const String.fromEnvironment('SENTRY_TRACES_SAMPLE_RATE'),
@@ -82,6 +83,7 @@ class IgnacioPrayersApp extends StatelessWidget {
         theme: AppTheme.createTheme(Brightness.light),
         darkTheme: AppTheme.createTheme(Brightness.dark),
         themeMode: settings.themeMode,
+        navigatorObservers: [SentryNavigatorObserver()],
         initialRoute: Routes.home,
         onGenerateRoute: Routes.onGenerateRoute,
         onUnknownRoute: Routes.onUnknownRoute,
