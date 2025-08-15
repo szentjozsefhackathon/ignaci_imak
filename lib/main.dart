@@ -59,6 +59,29 @@ void main() async {
           const String.fromEnvironment('SENTRY_ON_ERROR_SAMPLE_RATE'),
         ) ??
         1.0;
+
+    // https://docs.sentry.io/platforms/dart/guides/flutter/user-feedback/
+    options.feedback.title = 'Hibajelzés';
+    options.feedback.showName = true; // false?
+    options.feedback.showEmail = true; // false?
+    options.feedback.showBranding = false;
+    options.feedback.showCaptureScreenshot = true;
+    options.feedback.formTitle = 'Hibajelzés';
+    options.feedback.messageLabel = 'Részletek';
+    options.feedback.messagePlaceholder =
+        'Pontosan mi nem működik? Mi lenne az elvárt?';
+    options.feedback.isRequiredLabel = ' (kötelező)';
+    options.feedback.successMessageText = 'Köszönjük a visszajelzést!';
+    options.feedback.nameLabel = 'Név';
+    options.feedback.namePlaceholder = '';
+    options.feedback.emailLabel = 'E-mail cím';
+    options.feedback.emailPlaceholder = '';
+    options.feedback.submitButtonLabel = 'Küldés';
+    options.feedback.cancelButtonLabel = 'Mégsem';
+    options.feedback.validationErrorLabel = 'Ez nem lehet üres';
+    options.feedback.captureScreenshotButtonLabel = 'Képernyőkép csatolása';
+    options.feedback.removeScreenshotButtonLabel = 'Képernyőkép eltávolítása';
+    options.feedback.takeScreenshotButtonLabel = 'Képernyőkép készítése';
   }, appRunner: () => runApp(SentryWidget(child: const IgnacioPrayersApp())));
   // TODO: Remove this line after sending the first sample event to sentry.
   await Sentry.captureException(StateError('This is a sample exception.'));
