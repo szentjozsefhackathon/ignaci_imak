@@ -36,21 +36,25 @@ class SettingsPage extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Text('Téma'),
           ),
-          ...ThemeMode.values.map(
-            (mode) => RadioListTile(
-              title: Text(switch (mode) {
-                ThemeMode.system => 'rendszer',
-                ThemeMode.light => 'világos',
-                ThemeMode.dark => 'sötét',
-                // ignore: require_trailing_commas
-              }),
-              value: mode,
-              groupValue: settings.themeMode,
-              onChanged: (v) {
-                if (v != null) {
-                  settings.themeMode = v;
-                }
-              },
+          RadioGroup(
+            groupValue: settings.themeMode,
+            onChanged: (v) {
+              if (v != null) {
+                settings.themeMode = v;
+              }
+            },
+            child: Column(
+              children: [
+                for (final mode in ThemeMode.values)
+                  RadioListTile(
+                    title: Text(switch (mode) {
+                      ThemeMode.system => 'rendszer',
+                      ThemeMode.light => 'világos',
+                      ThemeMode.dark => 'sötét',
+                    }),
+                    value: mode,
+                  ),
+              ],
             ),
           ),
           if (!kIsWeb) ...[
