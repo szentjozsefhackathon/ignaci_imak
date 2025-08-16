@@ -29,9 +29,11 @@ void main() async {
   }
   Intl.defaultLocale = 'hu';
 
+  // TODO: allow opt-out
   await SentryFlutter.init((options) {
     options.dsn = DartDefine.sentryDsn;
     options.environment = DartDefine.flavor.name;
+
     // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
     options.sendDefaultPii = true;
     options.enableLogs = true;
@@ -68,9 +70,9 @@ void main() async {
     options.feedback.captureScreenshotButtonLabel = 'Képernyőkép csatolása';
     options.feedback.removeScreenshotButtonLabel = 'Képernyőkép eltávolítása';
     options.feedback.takeScreenshotButtonLabel = 'Képernyőkép készítése';
-  }, appRunner: () => runApp(SentryWidget(child: const IgnacioPrayersApp())));
-  // TODO: Remove this line after sending the first sample event to sentry.
-  await Sentry.captureException(StateError('This is a sample exception.'));
+  });
+
+  runApp(SentryWidget(child: const IgnacioPrayersApp()));
 }
 
 class IgnacioPrayersApp extends StatelessWidget {
