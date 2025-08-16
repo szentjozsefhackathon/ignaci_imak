@@ -34,7 +34,7 @@ jobs:
       - name: Run build_runner
         run: dart run build_runner build
       - name: Run dart_define
-        run: dart run dart_define generate --force --FLAVOR=release
+        run: dart run dart_define generate --force --FLAVOR=production
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
       - name: Run analysis
