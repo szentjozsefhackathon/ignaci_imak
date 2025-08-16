@@ -67,6 +67,7 @@ dependencies:
 
 dev_dependencies:
   build_runner: ^2.9.0
+  dart_define: ^2.1.2
   flutter_launcher_icons: ^0.14.4
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -121,6 +122,34 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+dart_define:
+  variables:
+    - name: SENTRY_DSN
+      description: Sentry DSN
+      default: ''
+      required: false
+    - name: SENTRY_TRACES_SAMPLE_RATE
+      description: Sentry traces sample rate (0...1)
+      default: 1.0
+      required: false
+    - name: SENTRY_PROFILES_SAMPLE_RATE
+      description: Sentry profiles sample rate (0...1)
+      default: 1.0
+      required: false
+    - name: SENTRY_SESSION_SAMPLE_RATE
+      description: Sentry session sample rate (0...1)
+      default: 0.1
+      required: false
+    - name: SENTRY_ON_ERROR_SAMPLE_RATE
+      description: Sentry on error sample rate (0...1)
+      default: 1.0
+      required: false
+  flavors:
+    - name: production
+      description: Production flavor
+    - name: development
+      description: Development flavor
 
 sentry:
   upload_debug_symbols: true

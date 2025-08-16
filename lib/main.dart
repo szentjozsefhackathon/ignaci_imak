@@ -9,6 +9,7 @@ import 'package:relative_time/relative_time.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sentry_logging/sentry_logging.dart';
 
+import 'dart_define.gen.dart';
 import 'data/settings_data.dart';
 import 'notifications.dart';
 import 'routes.dart';
@@ -29,36 +30,21 @@ void main() async {
   Intl.defaultLocale = 'hu';
 
   await SentryFlutter.init((options) {
-    options.dsn = const String.fromEnvironment('SENTRY_DSN');
-    options.environment = const String.fromEnvironment(
-      'SENTRY_ENVIRONMENT',
-      defaultValue: 'dev',
-    );
+    options.dsn = DartDefine.sentryDsn;
+    options.environment = DartDefine.flavor.name;
     // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
     options.sendDefaultPii = true;
     options.enableLogs = true;
     options.addIntegration(LoggingIntegration());
     options.enableTimeToFullDisplayTracing = true;
     options.tracesSampleRate =
-        double.tryParse(
-          const String.fromEnvironment('SENTRY_TRACES_SAMPLE_RATE'),
-        ) ??
-        1.0;
+        double.tryParse(DartDefine.sentryTracesSampleRate) ?? 1.0;
     options.profilesSampleRate =
-        double.tryParse(
-          const String.fromEnvironment('SENTRY_PROFILES_SAMPLE_RATE'),
-        ) ??
-        1.0;
+        double.tryParse(DartDefine.sentryProfilesSampleRate) ?? 1.0;
     options.replay.sessionSampleRate =
-        double.tryParse(
-          const String.fromEnvironment('SENTRY_SESSION_SAMPLE_RATE'),
-        ) ??
-        0.1;
+        double.tryParse(DartDefine.sentrySessionSampleRate) ?? 0.1;
     options.replay.onErrorSampleRate =
-        double.tryParse(
-          const String.fromEnvironment('SENTRY_ON_ERROR_SAMPLE_RATE'),
-        ) ??
-        1.0;
+        double.tryParse(DartDefine.sentryOnErrorSampleRate) ?? 1.0;
 
     // https://docs.sentry.io/platforms/dart/guides/flutter/user-feedback/
     options.feedback.title = 'Hibajelzés';
