@@ -241,11 +241,14 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
           ),
         Opacity(
           opacity: .25,
-          child: _PageIndicator(
-            tabController: _tabController,
-            currentPageIndex: _currentPage,
-            onUpdateCurrentPageIndex: _updateCurrentPageIndex,
-            hasFab: _remainingSeconds > 0,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: _PageIndicator(
+              tabController: _tabController,
+              currentPageIndex: _currentPage,
+              onUpdateCurrentPageIndex: _updateCurrentPageIndex,
+              hasFab: _remainingSeconds > 0,
+            ),
           ),
         ),
       ],
@@ -285,10 +288,17 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   }
 
   Future<void> _updateCurrentPageIndex(int index) async {
-    _tabController.index = index;
+    if (_tabController.indexIsChanging) {
+      return;
+    }
+    _tabController.animateTo(
+      index,
+      duration: kThemeAnimationDuration,
+      curve: Curves.easeInOut,
+    );
     await _pageViewController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 400),
+      duration: kThemeAnimationDuration,
       curve: Curves.easeInOut,
     );
   }
@@ -303,7 +313,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   }
 }
 
-class _PageIndicator extends StatelessWidget {
+class _PageIndicator extends StatefulWidget {
   const _PageIndicator({
     required this.tabController,
     required this.currentPageIndex,
@@ -317,6 +327,43 @@ class _PageIndicator extends StatelessWidget {
   final bool hasFab;
 
   @override
+  State<_PageIndicator> createState() => _PageIndicatorState();
+}
+
+class _PageIndicatorState extends State<_PageIndicator> {
+  final ScrollController _scrollController = ScrollController();
+  int? _lastScrolledIndex;
+
+  // each dot is about 24px wide (10-16 + padding/border)
+  static const double _kDotWidth = 24;
+
+  @override
+  void didUpdateWidget(covariant _PageIndicator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_lastScrolledIndex != widget.currentPageIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToCurrentDot();
+        _lastScrolledIndex = widget.currentPageIndex;
+      });
+    }
+  }
+
+  void _scrollToCurrentDot() {
+    final offset = (widget.currentPageIndex * _kDotWidth) - (_kDotWidth * 2);
+    _scrollController.animateTo(
+      offset < 0 ? 0 : offset,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -324,13 +371,10 @@ class _PageIndicator extends StatelessWidget {
       builder: (context, constraints) {
         double left = 8;
         double right = 8;
-        if (hasFab) {
-          // length +1 for buttons
-          if (constraints.maxWidth > ((tabController.length + 1) * 32)) {
+        if (widget.hasFab) {
+          if (constraints.maxWidth > ((widget.tabController.length + 1) * 32)) {
             left += kMinInteractiveDimension;
           }
-
-          // safe area for mini FAB
           right += kMinInteractiveDimension;
         }
 
@@ -342,28 +386,53 @@ class _PageIndicator extends StatelessWidget {
               IconButton(
                 splashRadius: 16,
                 padding: EdgeInsets.zero,
-                onPressed: currentPageIndex <= 0
+                onPressed: widget.currentPageIndex <= 0
                     ? null
-                    : () => onUpdateCurrentPageIndex(currentPageIndex - 1),
+                    : () => widget.onUpdateCurrentPageIndex(
+                        widget.currentPageIndex - 1,
+                      ),
                 icon: const Icon(Icons.chevron_left_rounded),
                 tooltip: 'Előző oldal',
               ),
               Flexible(
                 child: SingleChildScrollView(
+                  controller: _scrollController,
                   scrollDirection: Axis.horizontal,
-                  child: TabPageSelector(
-                    controller: tabController,
-                    color: colorScheme.surface,
-                    selectedColor: colorScheme.primary,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(widget.tabController.length, (i) {
+                      final isSelected = i == widget.currentPageIndex;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: AnimatedContainer(
+                          duration: kThemeAnimationDuration,
+                          width: isSelected ? 16 : 10,
+                          height: isSelected ? 16 : 10,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? colorScheme.primary
+                                : colorScheme.surface.withValues(alpha: 0.5),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: colorScheme.primary.withValues(alpha: 0.5),
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
                   ),
                 ),
               ),
               IconButton(
                 splashRadius: 16,
                 padding: EdgeInsets.zero,
-                onPressed: currentPageIndex >= tabController.length - 1
+                onPressed:
+                    widget.currentPageIndex >= widget.tabController.length - 1
                     ? null
-                    : () => onUpdateCurrentPageIndex(currentPageIndex + 1),
+                    : () => widget.onUpdateCurrentPageIndex(
+                        widget.currentPageIndex + 1,
+                      ),
                 icon: const Icon(Icons.chevron_right_rounded),
                 tooltip: 'Következő oldal',
               ),
