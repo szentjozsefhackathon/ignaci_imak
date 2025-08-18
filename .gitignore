@@ -47,7 +47,6 @@ app.*.map.json
 
 # Generated files
 *.g.dart
-*.gen.dart
 
 # macOS System Files
 .DS_Store
