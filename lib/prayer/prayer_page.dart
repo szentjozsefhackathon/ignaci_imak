@@ -242,7 +242,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
         Opacity(
           opacity: .25,
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 56.0), // Add bottom padding
+            padding: const EdgeInsets.only(bottom: 4),
             child: _PageIndicator(
               tabController: _tabController,
               currentPageIndex: _currentPage,
@@ -327,6 +327,9 @@ class _PageIndicatorState extends State<_PageIndicator> {
   final ScrollController _scrollController = ScrollController();
   int? _lastScrolledIndex;
 
+  // each dot is about 24px wide (10-16 + padding/border)
+  static const double _kDotWidth = 24;
+
   @override
   void didUpdateWidget(covariant _PageIndicator oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -339,9 +342,7 @@ class _PageIndicatorState extends State<_PageIndicator> {
   }
 
   void _scrollToCurrentDot() {
-    // Each dot is about 24px wide (10-16 + padding/border)
-    const double dotWidth = 24.0;
-    final double offset = (widget.currentPageIndex * dotWidth) - (dotWidth * 2);
+    final offset = (widget.currentPageIndex * _kDotWidth) - (_kDotWidth * 2);
     _scrollController.animateTo(
       offset < 0 ? 0 : offset,
       duration: const Duration(milliseconds: 300),
@@ -395,18 +396,18 @@ class _PageIndicatorState extends State<_PageIndicator> {
                     children: List.generate(widget.tabController.length, (i) {
                       final isSelected = i == widget.currentPageIndex;
                       return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
+                          duration: kThemeAnimationDuration,
                           width: isSelected ? 16 : 10,
                           height: isSelected ? 16 : 10,
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? colorScheme.primary
-                                : colorScheme.surface.withOpacity(0.5),
+                                : colorScheme.surface.withValues(alpha: 0.5),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: colorScheme.primary.withOpacity(0.5),
+                              color: colorScheme.primary.withValues(alpha: 0.5),
                               width: isSelected ? 2 : 1,
                             ),
                           ),

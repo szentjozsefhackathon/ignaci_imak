@@ -57,7 +57,7 @@ class Prayer extends DataDescriptor with SlugMixin {
       final available = await DataManager.instance.voices
           .getLocalFile(filename)
           .then((f) => true)
-          .onError((_, __) => false);
+          .onError((_, _) => false);
       if (available) {
         availableOptions.add(option);
       }
