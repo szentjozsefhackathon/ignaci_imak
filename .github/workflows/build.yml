@@ -37,12 +37,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
+      - name: Create .env file
+        uses: SpicyPizza/create-envfile@v2.0
+        with:
+          envkey_SENTRY_ENVIRONMENT: "prod"
+          envkey_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+
       - name: Install dependencies
         run: flutter pub get
       - name: Run build_runner
         run: dart run build_runner build
-      - name: Run dart_define
-        run: dart run dart_define generate --force --FLAVOR=production
       - name: Run flutter_launcher_icons
         run: dart run flutter_launcher_icons
 
@@ -57,11 +61,11 @@ jobs:
           echo "storeFile=keystore.jks" >> android/key.properties
 
       - name: Build App Bundle
-        run: flutter build appbundle --dart-define-from-file=dart_define.json
+        run: flutter build appbundle
       - name: Build IPA
-        run: flutter build ipa --no-codesign --dart-define-from-file=dart_define.json
+        run: flutter build ipa --no-codesign
       - name: Build web app
-        run: flutter build web --release --base-href="/flutter/" --dart-define-from-file=dart_define.json
+        run: flutter build web --release --base-href="/flutter/"
 
       - name: Compress iOS output
         run: |

@@ -9,8 +9,8 @@ import 'package:relative_time/relative_time.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sentry_logging/sentry_logging.dart';
 
-import 'dart_define.gen.dart';
 import 'data/settings_data.dart';
+import 'env.dart';
 import 'notifications.dart';
 import 'routes.dart';
 import 'settings/dnd.dart' show DndProvider;
@@ -31,8 +31,8 @@ void main() async {
 
   // TODO: allow opt-out
   await SentryFlutter.init((options) {
-    options.dsn = DartDefine.sentryDsn;
-    options.environment = DartDefine.flavor.name;
+    options.dsn = Env.sentryDsn;
+    options.environment = Env.sentryEnvironment;
 
     // https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
     options.sendDefaultPii = true;
@@ -40,13 +40,13 @@ void main() async {
     options.addIntegration(LoggingIntegration());
     options.enableTimeToFullDisplayTracing = true;
     options.tracesSampleRate =
-        double.tryParse(DartDefine.sentryTracesSampleRate) ?? 1.0;
+        double.tryParse(Env.sentryTracesSampleRate) ?? 1.0;
     options.profilesSampleRate =
-        double.tryParse(DartDefine.sentryProfilesSampleRate) ?? 1.0;
+        double.tryParse(Env.sentryProfilesSampleRate) ?? 1.0;
     options.replay.sessionSampleRate =
-        double.tryParse(DartDefine.sentrySessionSampleRate) ?? 0.1;
+        double.tryParse(Env.sentrySessionSampleRate) ?? 0.1;
     options.replay.onErrorSampleRate =
-        double.tryParse(DartDefine.sentryOnErrorSampleRate) ?? 1.0;
+        double.tryParse(Env.sentryOnErrorSampleRate) ?? 1.0;
 
     // https://docs.sentry.io/platforms/dart/guides/flutter/user-feedback/
     options.feedback.title = 'Hibajelzés';
