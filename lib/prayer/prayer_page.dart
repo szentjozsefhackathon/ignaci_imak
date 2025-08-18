@@ -366,7 +366,7 @@ class _PageIndicatorState extends State<_PageIndicator> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // ...existing LayoutBuilder and padding code...
+
     return LayoutBuilder(
       builder: (context, constraints) {
         double left = 8;
