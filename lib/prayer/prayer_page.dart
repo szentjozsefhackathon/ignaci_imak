@@ -348,7 +348,7 @@ class _PageIndicatorState extends State<_PageIndicator> {
       curve: Curves.easeInOut,
     );
   }
-  
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -380,7 +380,9 @@ class _PageIndicatorState extends State<_PageIndicator> {
                 padding: EdgeInsets.zero,
                 onPressed: widget.currentPageIndex <= 0
                     ? null
-                    : () => widget.onUpdateCurrentPageIndex(widget.currentPageIndex - 1),
+                    : () => widget.onUpdateCurrentPageIndex(
+                        widget.currentPageIndex - 1,
+                      ),
                 icon: const Icon(Icons.chevron_left_rounded),
                 tooltip: 'Előző oldal',
               ),
@@ -417,9 +419,12 @@ class _PageIndicatorState extends State<_PageIndicator> {
               IconButton(
                 splashRadius: 16,
                 padding: EdgeInsets.zero,
-                onPressed: widget.currentPageIndex >= widget.tabController.length - 1
+                onPressed:
+                    widget.currentPageIndex >= widget.tabController.length - 1
                     ? null
-                    : () => widget.onUpdateCurrentPageIndex(widget.currentPageIndex + 1),
+                    : () => widget.onUpdateCurrentPageIndex(
+                        widget.currentPageIndex + 1,
+                      ),
                 icon: const Icon(Icons.chevron_right_rounded),
                 tooltip: 'Következő oldal',
               ),
