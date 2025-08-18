@@ -288,10 +288,17 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   }
 
   Future<void> _updateCurrentPageIndex(int index) async {
-    _tabController.index = index;
+    if (_tabController.indexIsChanging) {
+      return;
+    }
+    _tabController.animateTo(
+      index,
+      duration: kThemeAnimationDuration,
+      curve: Curves.easeInOut,
+    );
     await _pageViewController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 400),
+      duration: kThemeAnimationDuration,
       curve: Curves.easeInOut,
     );
   }
