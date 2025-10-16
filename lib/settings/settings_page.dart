@@ -4,6 +4,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../data/settings_data.dart';
 import '../notifications.dart';
@@ -88,6 +89,11 @@ class SettingsPage extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, Routes.dataSync),
             ),
           ],
+          if (Sentry.isEnabled)
+            ListTile(
+              title: const Text('Visszajelzés'),
+              onTap: () => SentryFeedbackWidget.show(context),
+            ),
           ListTile(
             title: const Text('Impresszum'),
             onTap: () => Navigator.pushNamed(context, Routes.impressum),

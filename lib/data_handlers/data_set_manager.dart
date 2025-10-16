@@ -1,8 +1,7 @@
 import 'dart:convert';
-import 'dart:io' show SocketException, HttpException;
 
-import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/common.dart';
@@ -39,36 +38,14 @@ abstract class DataSetManagerBase<T extends ToJson, Item extends ToJson> {
   }
 
   Future<String> _fetchServerData() async {
+    final client = SentryHttpClient(
+      failedRequestStatusCodes: [SentryStatusCode.range(201, 599)],
+    );
     try {
-      final response = await http.get(dataUrlEndpoint);
-      if (response.statusCode == 200) {
-        return response.body;
-      } else {
-        log.warning('Failed to fetch data from server: ${response.statusCode}');
-        throw HttpException('Failed with status code: ${response.statusCode}');
-      }
-    } on SocketException {
-      // Handle "Connection Refused" or "No Internet"
-      log.severe('Connection Refused');
-      // throw DataLoadingException('Unable to connect to the server. Please check your internet or server.', e);
-      throw Exception(
-        'No Internet connection or connection refused',
-      ); // TODO: Add link to check server availability from browser
-    } on http.ClientException {
-      // Handle invalid HTTP response
-      log.severe('HTTP Error:');
-      throw Exception('Invalid response received from the server.');
-      // throw DataLoadingException('Invalid response received from the server.', e);
-    } on FormatException {
-      // Handle invalid JSON
-      log.severe('Format Error');
-      throw Exception('Invalid response format');
-      // throw DataLoadingException('The server URL or response format is invalid.', e);
-    } catch (e, s) {
-      // Handle any other exceptions
-      log.severe('Error: $e', e, s);
-      throw Exception('An unexpected error occurred: $e');
-      // throw DataLoadingException('An unexpected error occurred:', e);
+      final response = await client.get(dataUrlEndpoint);
+      return response.body;
+    } finally {
+      client.close();
     }
   }
 }

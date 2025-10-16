@@ -8,7 +8,7 @@ Ignáci imák app.
 # get dependencies
 flutter pub get
 
-# creategenerated source files
+# create generated source files
 dart run build_runner build
 
 # create generated icons

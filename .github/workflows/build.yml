@@ -37,6 +37,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
+      - name: Create .env file
+        uses: SpicyPizza/create-envfile@v2.0
+        with:
+          envkey_SENTRY_ENVIRONMENT: "prod"
+          envkey_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+
       - name: Install dependencies
         run: flutter pub get
       - name: Run build_runner
