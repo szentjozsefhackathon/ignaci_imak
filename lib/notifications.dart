@@ -107,7 +107,7 @@ class Notifications with ChangeNotifier {
           .then((r) => r?.isEnabled);
     } else {
       throw UnimplementedError(
-        'requestPermissions is not implemented on ${Platform.operatingSystem}',
+        'checkPermissions is not implemented on ${Platform.operatingSystem}',
       );
     }
     return result;
