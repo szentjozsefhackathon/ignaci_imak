@@ -350,10 +350,8 @@ class _PageIndicatorState extends State<_PageIndicator> {
 
   void _scrollToCurrentDot() {
     final offset = (widget.currentPageIndex * _kDotWidth) - (_kDotWidth * 2);
-    _scrollController.animateTo(
-      offset < 0 ? 0 : offset,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+    _scrollController.jumpTo(
+      offset < 0 ? 0 : offset
     );
   }
 
