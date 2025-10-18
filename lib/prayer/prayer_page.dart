@@ -152,8 +152,10 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   Future<void> _loadAudio(String filename) async {
     try {
       if (kIsWeb) {
+        await _audioPlayer.stop();
+        final uri = DataManager.instance.voices.getDownloadUri(filename);
         await _audioPlayer.setAudioSource(
-          AudioSource.uri(DataManager.instance.voices.getDownloadUri(filename)),
+          AudioSource.uri(uri),
           initialPosition: Duration.zero,
         );
       } else {
