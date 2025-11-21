@@ -70,6 +70,33 @@ void main() async {
     options.feedback.captureScreenshotButtonLabel = 'Képernyőkép csatolása';
     options.feedback.removeScreenshotButtonLabel = 'Képernyőkép eltávolítása';
     options.feedback.takeScreenshotButtonLabel = 'Képernyőkép készítése';
+
+    const serverAppPath = Env.serverAppPath;
+    options.beforeSend = (event, hint) {
+      // https://pub.dev/packages/sentry_dart_plugin#web
+      if (serverAppPath != null &&
+          serverAppPath != '' &&
+          serverAppPath != '/') {
+        event.exceptions = event.exceptions?.map((e) {
+          final s = e.stackTrace;
+          if (s != null) {
+            return e
+              ..stackTrace = SentryStackTrace(
+                frames: [
+                  for (final f in s.frames)
+                    f
+                      ..absPath = f.absPath?.replaceFirst(
+                        Env.serverUrl,
+                        '${Env.serverUrl}/$serverAppPath',
+                      ),
+                ],
+              );
+          }
+          return e;
+        }).toList();
+      }
+      return event;
+    };
   });
 
   runApp(SentryWidget(child: const IgnacioPrayersApp()));

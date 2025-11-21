@@ -85,4 +85,5 @@ ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
 web/favicon.png
 web/icons/Icon-*.png
 
+.env
 sentry.properties

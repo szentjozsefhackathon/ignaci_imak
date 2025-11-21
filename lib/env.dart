@@ -4,6 +4,24 @@ part 'env.g.dart';
 
 @Envied(allowOptionalFields: true, useConstantCase: true)
 abstract class Env {
+  @EnviedField(optional: false)
+  static const String serverUrl = _Env.serverUrl;
+
+  static Uri? _serverUri;
+  static Uri get serverUri => _serverUri ??= Uri.parse(serverUrl);
+
+  @EnviedField(optional: false)
+  static const String serverCheckVersionsPath = _Env.serverCheckVersionsPath;
+
+  @EnviedField(optional: false)
+  static const String serverDownloadDataPath = _Env.serverDownloadDataPath;
+
+  @EnviedField(optional: false)
+  static const String serverMediaPathPrefix = _Env.serverMediaPathPrefix;
+
+  @EnviedField()
+  static const String? serverAppPath = _Env.serverAppPath;
+
   @EnviedField(defaultValue: 'dev')
   static const String sentryEnvironment = _Env.sentryEnvironment;
 

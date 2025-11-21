@@ -9,7 +9,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../data/common.dart';
 import '../data/media_data.dart';
-import '../urls.dart';
+import '../env.dart';
 import 'data_set_manager.dart';
 
 class MediaManager extends ListDataSetManagerBase<MediaData> {
@@ -88,7 +88,8 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
     return list;
   }
 
-  Uri getDownloadUri(String name) => Uri.parse(mediaApiUrl(dataKey, name));
+  Uri getDownloadUri(String name) =>
+      Env.serverUri.replace(path: '${Env.serverMediaPathPrefix}$dataKey/$name');
 
   Future<bool> _downloadAndSaveFile(MediaData m, BaseClient client) async {
     try {
