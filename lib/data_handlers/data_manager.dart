@@ -2,68 +2,64 @@ import 'package:logging/logging.dart';
 
 import '../data/prayer_group.dart';
 import '../data/versions.dart';
-import '../urls.dart';
+import '../env.dart';
 import 'data_set_manager.dart';
 import 'media_manager.dart';
 
 // TODO: make this a povider
 
-const _kPrayerGroup = 'prayerGroupsData';
-const _kVersions = 'versionsData';
-const _kImages = 'images';
-const _kVoices = 'voices';
-
 class DataManager {
-  DataManager._();
+  DataManager._() {
+    versions = DataSetManager<Versions>(
+      dataKey: 'versionsData',
+      dataUrlEndpoint: Env.serverUri.replace(path: Env.serverCheckVersionsPath),
+      fromJson: Versions.fromJson,
+    );
+    prayerGroups = ListDataSetManager<PrayerGroup>(
+      dataKey: 'prayerGroupsData',
+      dataUrlEndpoint: Env.serverUri.replace(path: Env.serverDownloadDataPath),
+      fromJson: PrayerGroup.fromJson,
+    );
+    images = MediaManager(
+      dataKey: 'images',
+      dataUrlEndpoint: Env.serverUri.replace(
+        path: '${Env.serverMediaPathPrefix}sync-images',
+      ),
+    );
+    voices = MediaManager(
+      dataKey: 'voices',
+      dataUrlEndpoint: Env.serverUri.replace(
+        path: '${Env.serverMediaPathPrefix}sync-voices',
+      ),
+    );
+  }
 
   static DataManager? _instance;
   // ignore: prefer_constructors_over_static_methods
   static DataManager get instance => _instance ??= DataManager._();
 
-  DataSetManager<Versions> get versions => _versions;
-  ListDataSetManager<PrayerGroup> get prayerGroups => _prayerGroups;
-  MediaManager get images => _images;
-  MediaManager get voices => _voices;
+  late final DataSetManager<Versions> versions;
+  late final ListDataSetManager<PrayerGroup> prayerGroups;
+  late final MediaManager images;
+  late final MediaManager voices;
 
   static final log = Logger('DataManager');
-
-  final _versions = DataSetManager<Versions>(
-    dataKey: _kVersions,
-    dataUrlEndpoint: Uri.parse(kCheckVersionUrl),
-    fromJson: Versions.fromJson,
-  );
-
-  final _prayerGroups = ListDataSetManager<PrayerGroup>(
-    dataKey: _kPrayerGroup,
-    dataUrlEndpoint: Uri.parse(kDownloadDataUrl),
-    fromJson: PrayerGroup.fromJson,
-  );
-
-  final _images = MediaManager(
-    dataKey: _kImages,
-    dataUrlEndpoint: Uri.parse(kImageListUrl),
-  );
-
-  final _voices = MediaManager(
-    dataKey: _kVoices,
-    dataUrlEndpoint: Uri.parse(kVoicesListUrl),
-  );
 
   DateTime? _lastUpdateCheck;
   DateTime? get lastUpdateCheck => _lastUpdateCheck;
 
   Future<void> _updateLocalVersions(Versions newLocalVersions) async {
-    await _versions.saveLocalData(newLocalVersions);
+    await versions.saveLocalData(newLocalVersions);
     log.info('Local versions updated to ${newLocalVersions.toJson()}');
   }
 
   Future<Versions> checkForUpdates({required bool stopOnError}) async {
-    final localVersionsExist = await _versions.localDataExists;
-    final localVersions = localVersionsExist ? (await _versions.data) : null;
+    final localVersionsExist = await versions.localDataExists;
+    final localVersions = localVersionsExist ? (await versions.data) : null;
     log.info('Local versions: ${localVersions?.toJson()}');
 
     // Load server version data
-    final serverVersions = await _versions.serverData;
+    final serverVersions = await versions.serverData;
     log.info('Server versions: ${serverVersions.toJson()}');
 
     _lastUpdateCheck = DateTime.now();
@@ -72,7 +68,7 @@ class DataManager {
     final oldVersion = localVersions?.data;
     final newVersion = serverVersions.data;
     if (oldVersion != newVersion) {
-      await _prayerGroups.downloadAndSaveData();
+      await prayerGroups.downloadAndSaveData();
       log.info('Updating data from version $oldVersion to $newVersion');
       await _updateLocalVersions(
         localVersions == null
@@ -84,12 +80,12 @@ class DataManager {
   }
 
   Future<bool> updateImages(Versions serverVersions) async {
-    final localVersions = _versions.cachedLocalData;
+    final localVersions = versions.cachedLocalData;
     final oldVersion = localVersions?.images;
     final newVersion = serverVersions.images;
     if (oldVersion != newVersion) {
-      final serverData = await _images.serverData;
-      if (await _images.syncFiles(serverData, stopOnError: true)) {
+      final serverData = await images.serverData;
+      if (await images.syncFiles(serverData, stopOnError: true)) {
         log.info('Image files updated from version $oldVersion to $newVersion');
         await _updateLocalVersions(
           localVersions == null
@@ -103,12 +99,12 @@ class DataManager {
   }
 
   Future<bool> updateVoices(Versions serverVersions) async {
-    final localVersions = _versions.cachedLocalData;
+    final localVersions = versions.cachedLocalData;
     final oldVersion = localVersions?.voices;
     final newVersion = serverVersions.voices;
     if (oldVersion != newVersion) {
-      final serverData = await _voices.serverData;
-      if (await _voices.syncFiles(serverData, stopOnError: true)) {
+      final serverData = await voices.serverData;
+      if (await voices.syncFiles(serverData, stopOnError: true)) {
         log.info('Voice files updated from version $oldVersion to $newVersion');
         await _updateLocalVersions(
           localVersions == null

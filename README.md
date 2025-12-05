@@ -5,6 +5,9 @@ Ignáci imák app.
 ## Getting Started
 
 ```shell
+# create .env (add missing values)
+cp .env.example .env
+
 # get dependencies
 flutter pub get
 

@@ -61,11 +61,13 @@ jobs:
           echo "storeFile=keystore.jks" >> android/key.properties
 
       - name: Build App Bundle
-        run: flutter build appbundle
+        run: |
+          flutter build appbundle --obfuscate --split-debug-info=build/symbols --extra-gen-snapshot-options=--save-obfuscation-map=build/mapping.json
+          dart run sentry_dart_plugin
       - name: Build IPA
         run: flutter build ipa --no-codesign
       - name: Build web app
-        run: flutter build web --release --base-href="/flutter/"
+        run: flutter build web --base-href="/flutter/" --source-maps
 
       - name: Compress iOS output
         run: |
