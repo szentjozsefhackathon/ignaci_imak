@@ -181,69 +181,83 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
   }
 }
 
-class MeditationFocusHint extends StatelessWidget {
-
+class MeditationFocusHint extends StatefulWidget {
   const MeditationFocusHint({super.key});
-  final String shortcutLink = 'https://www.icloud.com/shortcuts/YOUR_SHORTCUT_LINK_HERE';
+
+  @override
+  State<MeditationFocusHint> createState() => _MeditationFocusHintState();
+}
+
+class _MeditationFocusHintState extends State<MeditationFocusHint> {
+  final String shortcutLink = 'https://www.icloud.com/shortcuts/284faea7689f424e84aea99c8bf95edd';
+  final String runShortcutLink = 'shortcuts://run-shortcut?name=Fókusz%20beállítása';
+  bool? _canRunShortcut;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkIfShortcutCanBeRun();
+  }
+
+  Future<void> _checkIfShortcutCanBeRun() async {
+    final canRun = await canLaunchUrl(Uri.parse(runShortcutLink));
+    if (mounted) {
+      setState(() {
+        _canRunShortcut = canRun;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<bool?>(
-      valueListenable: FocusStatus.status,
-      builder: (context, isFocused, _) {
-        if (isFocused == true) {
-          return const SizedBox.shrink(); // Focus is active
-        }
+    valueListenable: FocusStatus.status,
+    builder: (context, isFocused, _) {
+      if (isFocused == true) {
+        return const SizedBox.shrink(); // Focus is active
+      }
 
-        return Card(
-          color: Colors.amber.shade100,
-          margin: const EdgeInsets.all(12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Distraction-Free Mode',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      final theme = Theme.of(context);
+      final colorScheme = theme.colorScheme;
+
+      return Card(
+        color: colorScheme.tertiaryContainer,
+        margin: const EdgeInsets.all(12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Az elmélyüléshez javasolt a Fókusz mód (pl. Ne zavarjanak) használata',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onTertiaryContainer,
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'To stay fully focused during your meditation, turn on a Focus mode (e.g. Meditation or Do Not Disturb).',
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Kapcsold be a Fókusz módot, hogy semmi ne zavarjon imádság közben.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onTertiaryContainer,
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    ElevatedButton(
-                      onPressed: () async {
-                        await FocusStatus.openFocusSettings();
-                      },
-                      child: const Text('Open Focus Settings'),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: () async {
-                        final url = Uri.parse(shortcutLink);
-                        await launchUrl(url, mode: LaunchMode.externalApplication);
-                      },
-                      child: const Text('Set up Shortcut'),
-                    ),
-                  ],
-                ),
+              ),
+              const SizedBox(height: 12),
+              if (_canRunShortcut == true)
                 ElevatedButton(
-                  onPressed: () async {
-                    final s = await FocusStatus.getFocusStatus();
-                    debugPrint('[FocusStatus] getFocusStatus -> $s');
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Focus status: $s')),
-                    );
-                  },
-                  child: const Text('Check Focus (debug)'),
+                  onPressed: () => launchUrl(Uri.parse(runShortcutLink)),
+                  child: const Text('Ne zavarjanak bekapcsolása'),
+                )
+              else if (_canRunShortcut == false)
+                ElevatedButton(
+                  onPressed: () => launchUrl(Uri.parse(shortcutLink),
+                      mode: LaunchMode.externalApplication),
+                  child: const Text('Parancsikon letöltése'),
                 ),
-              ],
-            ),
+            ],
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
 }

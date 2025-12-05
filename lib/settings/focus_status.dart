@@ -50,7 +50,12 @@ class FocusStatus {
         status.value = null;
         return null;
       }
-      // treat UNAUTHORIZED and others as "not focused" so UI can offer Settings
+      if (e.code == 'UNAUTHORIZED') {
+        // App not granted Focus access — treat as "not focused" so UI can offer Settings
+        status.value = false;
+        return false;
+      }
+      // other errors -> treat as "not focused" fallback
       status.value = false;
       return false;
     } catch (_) {
@@ -65,15 +70,14 @@ class FocusStatus {
       final version = iosInfo.systemVersion?.split(".").first ?? "0";
       final major = int.tryParse(version) ?? 0;
 
-      if (major < 15) {
-        print("Focus settings not available below iOS 15");
+      if (major < 16) {
+        debugPrint("Focus settings not available below iOS 16");
         return false;
       }
     }
 
     try {
-      final dynamic res = await _channel.invokeMethod('openFocusSettings');
-      return res == true;
+      return await _channel.invokeMethod('openFocusSettings') == true;
     } on PlatformException {
       return false;
     }

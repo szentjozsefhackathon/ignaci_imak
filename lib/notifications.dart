@@ -178,7 +178,7 @@ class Notifications with ChangeNotifier {
     await _n.zonedSchedule(
       maxId + 1,
       'Ignáci ima',
-      'Ignáci ima értesítő',
+      'Itt az ideje egy kicsit elcsendesedni 🙏',
       dateTime,
       _notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
