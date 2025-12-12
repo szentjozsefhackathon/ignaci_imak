@@ -29,6 +29,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
+      - name: Create .env file
+        uses: 0ndt/envfile@v2
+        with:
+          secrets: ${{ toJSON(secrets) }}
+
       - name: Install dependencies
         run: flutter pub get
       - name: Run build_runner
