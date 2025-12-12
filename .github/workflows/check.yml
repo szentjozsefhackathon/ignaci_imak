@@ -11,6 +11,8 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      SERVER_URL: dummy_env_value_for_this_workflow
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
