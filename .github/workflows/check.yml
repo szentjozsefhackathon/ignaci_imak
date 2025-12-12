@@ -12,7 +12,11 @@ jobs:
   check:
     runs-on: ubuntu-latest
     env:
-      SERVER_URL: dummy_env_value_for_this_workflow
+      # these env variables (but not their values) are required for build_runner
+      SERVER_URL: ''
+      SERVER_CHECK_VERSIONS_PATH: ''
+      SERVER_DOWNLOAD_DATA_PATH: ''
+      SERVER_MEDIA_PATH_PREFIX: ''
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
