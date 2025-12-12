@@ -43,22 +43,16 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
               value: settings.dnd,
               onChanged: (v) => settings.dnd = v,
             ),
-          FutureBuilder<bool?>(
-            future: FocusStatus.getFocusStatus(),
-            builder: (context, snapshot) {
+          ValueListenableBuilder<bool?>(
+            valueListenable: FocusStatus.status,
+            builder: (context, isFocused, _) {
               // hide on non-iOS or when app-level DND is enabled
               if (!_isIOS) return const SizedBox.shrink();
-
-              // while loading, don't show the hint
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox.shrink();
-              }
-
-              final isFocused = snapshot.data;
+              
               // if system Focus/DND is active, hide the hint
               if (isFocused == true) return const SizedBox.shrink();
 
-              // otherwise show the hint (isFocused == false or unsupported/null)
+              // otherwise show the hint (isFocused == false or not yet determined)
               return const MeditationFocusHint();
             },
           ),
@@ -189,75 +183,130 @@ class MeditationFocusHint extends StatefulWidget {
 }
 
 class _MeditationFocusHintState extends State<MeditationFocusHint> {
-  final String shortcutLink = 'https://www.icloud.com/shortcuts/284faea7689f424e84aea99c8bf95edd';
-  final String runShortcutLink = 'shortcuts://run-shortcut?name=Fókusz%20beállítása';
-  bool? _canRunShortcut;
+  // Using the shortcut's identifier is more reliable than its name,
+  // as the user can rename the shortcut.
+  final String _shortcutId = '58ff4546eaa9497a93fdf9635011e64d';
+  final String _shortcutName = 'Ignáci fókusz';
+  late final String _shortcutLink = 'https://www.icloud.com/shortcuts/$_shortcutId';
+  late final String _runShortcutLink =
+      'shortcuts://run-shortcut?name=${Uri.encodeComponent(_shortcutName)}';
 
   @override
-  void initState() {
-    super.initState();
-    _checkIfShortcutCanBeRun();
-  }
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
 
-  Future<void> _checkIfShortcutCanBeRun() async {
-    final canRun = await canLaunchUrl(Uri.parse(runShortcutLink));
-    if (mounted) {
-      setState(() {
-        _canRunShortcut = canRun;
-      });
-    }
-  }
+    return ValueListenableBuilder(
+      valueListenable: FocusStatus.authorizationStatus,
+      builder: (context, authStatus, _) {
+        final colorScheme = theme.colorScheme;
 
-  @override
-  Widget build(BuildContext context) => ValueListenableBuilder<bool?>(
-    valueListenable: FocusStatus.status,
-    builder: (context, isFocused, _) {
-      if (isFocused == true) {
-        return const SizedBox.shrink(); // Focus is active
-      }
-
-      final theme = Theme.of(context);
-      final colorScheme = theme.colorScheme;
-
-      return Card(
-        color: colorScheme.tertiaryContainer,
-        margin: const EdgeInsets.all(12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Az elmélyüléshez javasolt a Fókusz mód (pl. Ne zavarjanak) használata',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onTertiaryContainer,
-                ),
+        // User has explicitly denied permission.
+        if (authStatus == 2) {
+          return Card(
+            color: colorScheme.tertiaryContainer,
+            margin: const EdgeInsets.all(12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Az elmélyüléshez javasolt a Fókusz mód (pl. Ne zavarjanak) használata',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onTertiaryContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Fókusz mód detektálásához engedélyre van szüksége az applikációnak, kapcsold be a jogosultságot a beállításokban.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onTertiaryContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      onPressed: FocusStatus.openFocusSettings,
+                      child: const Text('Beállítások'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Kapcsold be a Fókusz módot, hogy semmi ne zavarjon imádság közben.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onTertiaryContainer,
+            ),
+          );
+        }
+
+        // For all other states (authorized, not determined, or unknown), show the standard hint.
+        return Card(
+          color: colorScheme.tertiaryContainer,
+          margin: const EdgeInsets.all(12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Az elmélyüléshez javasolt a Fókusz mód (pl. Ne zavarjanak) használata',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onTertiaryContainer,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              if (_canRunShortcut == true)
-                ElevatedButton(
-                  onPressed: () => launchUrl(Uri.parse(runShortcutLink)),
-                  child: const Text('Ne zavarjanak bekapcsolása'),
-                )
-              else if (_canRunShortcut == false)
-                ElevatedButton(
-                  onPressed: () => launchUrl(Uri.parse(shortcutLink),
-                      mode: LaunchMode.externalApplication),
-                  child: const Text('Parancsikon letöltése'),
+                const SizedBox(height: 8),
+                Text(
+                  'Kapcsold be a Fókusz módot, hogy semmi ne zavarjon imádság közben.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onTertiaryContainer,
+                  ),
                 ),
-            ],
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: () => launchUrl(Uri.parse(_runShortcutLink)),
+                    child: const Text('Ignáci fókusz bekapcsolása'),
+                  ),
+                ),
+                OverflowBar(
+                  alignment: MainAxisAlignment.end,
+                  spacing: 8,
+                  children: [
+                    Text(
+                      'Ha a fenti gomb nem működik ("A(z) "$_shortcutName" parancs nem található"), add hozzá a parancsaidhoz a gomb segítségével.',
+                      textAlign: TextAlign.left,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                    Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                        onPressed: () => launchUrl(
+                          Uri.parse(_shortcutLink),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                        child: const Text('Parancs hozzáadása'),
+                      ),
+                    ),
+                    Text(
+                      'A továbbiakban ezt a parancsot kedved szerint módosíthatod. Fontos hogy az "Ignáci fókusz bekapcsolása" gomb csak akkor működik, ha a parancs neve pontosan „$_shortcutName”.',
+                      textAlign: TextAlign.left,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
+  }
 }

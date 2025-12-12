@@ -29,7 +29,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-  app_settings: ^6.1.1
+  app_settings: ^7.0.0
   auto_size_text: ^3.0.0
   collection: ^1.16.0
   # The following adds the Cupertino Icons font to your application.
