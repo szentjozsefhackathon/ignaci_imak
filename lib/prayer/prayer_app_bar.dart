@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
 
 import '../data/prayer.dart';
 import '../data/prayer_group.dart';
@@ -109,7 +110,10 @@ class PrayerAppBarOptions {
 
     return PrayerAppBarOptions._(
       collapsedHeight: collapsedHeight,
-      expandedHeight: math.max(screenSize.height * 0.3, collapsedHeight + kToolbarHeight),
+      expandedHeight: math.max(
+        screenSize.height * 0.3,
+        collapsedHeight + kToolbarHeight,
+      ),
       subtitleVisible: hasSubtitle,
     );
   }

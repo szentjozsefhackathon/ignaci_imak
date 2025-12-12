@@ -1,4 +1,6 @@
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -9,11 +11,6 @@ import '../routes.dart';
 import '../settings/dnd.dart';
 import '../settings/focus_status.dart';
 import 'prayer_page.dart';
-
-// file-local helpers: true only on Android / iOS (and false on web/etc.)
-bool get _isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
-
 
 class PrayerSettingsPage extends StatefulWidget {
   const PrayerSettingsPage({super.key, required this.prayer});
@@ -38,7 +35,7 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
             value: settings.autoPageTurn,
             onChanged: (v) => settings.autoPageTurn = v,
           ),
-          if (_isAndroid)
+          if (Platform.isAndroid)
             DndSwitchListTile(
               value: settings.dnd,
               onChanged: (v) => settings.dnd = v,
@@ -46,14 +43,10 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
           ValueListenableBuilder<bool?>(
             valueListenable: FocusStatus.status,
             builder: (context, isFocused, _) {
-              // hide on non-iOS or when app-level DND is enabled
-              if (!_isIOS) return const SizedBox.shrink();
-              
-              // if system Focus/DND is active, hide the hint
-              if (isFocused == true) return const SizedBox.shrink();
-
-              // otherwise show the hint (isFocused == false or not yet determined)
-              return const MeditationFocusHint();
+              if (kIsWeb || !Platform.isIOS || isFocused == true) {
+                return const SizedBox.shrink();
+              }
+              return MeditationFocusHint();
             },
           ),
           if (widget.prayer.voiceOptions.isEmpty)
@@ -175,20 +168,15 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
   }
 }
 
-class MeditationFocusHint extends StatefulWidget {
-  const MeditationFocusHint({super.key});
+class MeditationFocusHint extends StatelessWidget {
+  MeditationFocusHint({super.key});
 
-  @override
-  State<MeditationFocusHint> createState() => _MeditationFocusHintState();
-}
-
-class _MeditationFocusHintState extends State<MeditationFocusHint> {
   // Using the shortcut's identifier is more reliable than its name,
-  // as the user can rename the shortcut.
-  final String _shortcutId = '58ff4546eaa9497a93fdf9635011e64d';
-  final String _shortcutName = 'Ignáci fókusz';
-  late final String _shortcutLink = 'https://www.icloud.com/shortcuts/$_shortcutId';
-  late final String _runShortcutLink =
+  final _shortcutId = '58ff4546eaa9497a93fdf9635011e64d';
+  final _shortcutName = 'Ignáci fókusz';
+
+  late final _shortcutLink = 'https://www.icloud.com/shortcuts/$_shortcutId';
+  late final _runShortcutLink =
       'shortcuts://run-shortcut?name=${Uri.encodeComponent(_shortcutName)}';
 
   @override
@@ -205,7 +193,9 @@ class _MeditationFocusHintState extends State<MeditationFocusHint> {
           return Card(
             color: colorScheme.tertiaryContainer,
             margin: const EdgeInsets.all(12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -226,11 +216,11 @@ class _MeditationFocusHintState extends State<MeditationFocusHint> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Align(
+                  const Align(
                     alignment: Alignment.centerRight,
                     child: ElevatedButton(
                       onPressed: FocusStatus.openFocusSettings,
-                      child: const Text('Beállítások'),
+                      child: Text('Beállítások'),
                     ),
                   ),
                 ],
@@ -243,7 +233,9 @@ class _MeditationFocusHintState extends State<MeditationFocusHint> {
         return Card(
           color: colorScheme.tertiaryContainer,
           margin: const EdgeInsets.all(12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -279,12 +271,12 @@ class _MeditationFocusHintState extends State<MeditationFocusHint> {
                       'Ha a fenti gomb nem működik ("A(z) "$_shortcutName" parancs nem található"), add hozzá a parancsaidhoz a gomb segítségével.',
                       textAlign: TextAlign.left,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onTertiaryContainer,
+                        color: colorScheme.onTertiaryContainer,
                       ),
                     ),
                     Align(
-                    alignment: Alignment.centerRight,
-                    child: ElevatedButton(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
                         onPressed: () => launchUrl(
                           Uri.parse(_shortcutLink),
                           mode: LaunchMode.externalApplication,
@@ -296,7 +288,7 @@ class _MeditationFocusHintState extends State<MeditationFocusHint> {
                       'A továbbiakban ezt a parancsot kedved szerint módosíthatod. Fontos hogy az "Ignáci fókusz bekapcsolása" gomb csak akkor működik, ha a parancs neve pontosan „$_shortcutName”.',
                       textAlign: TextAlign.left,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onTertiaryContainer,
+                        color: colorScheme.onTertiaryContainer,
                       ),
                     ),
                   ],

@@ -8,7 +8,7 @@ import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart';
-import 'theme.dart'; // Import the entire theme.dart to access AppTheme
+import 'theme.dart' show kThemeSeedColor;
 
 export 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show DateTimeComponents;
@@ -32,7 +32,7 @@ class Notifications with ChangeNotifier {
     android: AndroidNotificationDetails(
       _androidChannel.id,
       _androidChannel.name,
-      color: AppTheme.kSeedColor, // Use the seed color from AppTheme
+      color: kThemeSeedColor,
       priority: Priority.high,
       importance: _androidChannel.importance,
       category: AndroidNotificationCategory.reminder,
@@ -67,16 +67,8 @@ class Notifications with ChangeNotifier {
     final initialized = await _n.initialize(
       const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/launcher_icon'),
-        iOS: DarwinInitializationSettings(
-          requestAlertPermission: true,
-          requestBadgePermission: true,
-          requestSoundPermission: true,
-        ),
-        macOS: DarwinInitializationSettings(
-          requestAlertPermission: true,
-          requestBadgePermission: true,
-          requestSoundPermission: true,
-        ),
+        iOS: DarwinInitializationSettings(),
+        macOS: DarwinInitializationSettings(),
         linux: LinuxInitializationSettings(defaultActionName: 'Megnyitás'),
         windows: WindowsInitializationSettings(
           appName: 'Ignáci imák',
@@ -87,7 +79,9 @@ class Notifications with ChangeNotifier {
       onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
     );
 
-    if (initialized != true) return;
+    if (initialized != true) {
+      return;
+    }
 
     // Create Android notification channel
     if (Platform.isAndroid) {

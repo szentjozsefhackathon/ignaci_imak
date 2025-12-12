@@ -352,9 +352,7 @@ class _PageIndicatorState extends State<_PageIndicator> {
 
   void _scrollToCurrentDot() {
     final offset = (widget.currentPageIndex * _kDotWidth) - (_kDotWidth * 2);
-    _scrollController.jumpTo(
-      offset < 0 ? 0 : offset
-    );
+    _scrollController.jumpTo(offset < 0 ? 0 : offset);
   }
 
   @override

@@ -1,21 +1,16 @@
 import 'dart:io' show Platform;
 
 import 'package:app_settings/app_settings.dart';
-import 'package:flutter/foundation.dart'
-    show kDebugMode, kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../data/settings_data.dart';
 import '../notifications.dart';
-import '../theme.dart';
 import '../routes.dart';
+import '../theme.dart' show AppThemeMode;
 import 'dnd.dart';
-
-// file-local helpers: true only on Android / iOS (and false on web/etc.)
-bool get _isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -28,12 +23,12 @@ class SettingsPage extends StatelessWidget {
       appBar: AppBar(title: const Text('Beállítások')),
       body: ListView(
         children: [
-          if (_isAndroid)
+          if (Platform.isAndroid)
             DndSwitchListTile(
               value: settings.dnd,
               onChanged: (v) => settings.dnd = v,
             ),
-          if (_isAndroid && settings.dnd)
+          if (Platform.isAndroid && settings.dnd)
             ListTile(
               title: const Text('Ne zavarjanak további beállításai'),
               trailing: const Icon(Icons.open_in_new_rounded),

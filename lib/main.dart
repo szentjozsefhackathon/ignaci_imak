@@ -1,4 +1,6 @@
-import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -13,8 +15,8 @@ import 'data/settings_data.dart';
 import 'env.dart';
 import 'notifications.dart';
 import 'routes.dart';
-import 'settings/focus_status.dart';
 import 'settings/dnd.dart' show DndProvider;
+import 'settings/focus_status.dart';
 import 'theme.dart';
 
 void main() async {
@@ -30,8 +32,8 @@ void main() async {
   }
   Intl.defaultLocale = 'hu';
 
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-    FocusStatus.init();
+  if (!kIsWeb && Platform.isIOS) {
+    await FocusStatus.init();
   }
 
   // TODO: allow opt-out
