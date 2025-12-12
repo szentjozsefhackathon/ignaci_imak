@@ -125,9 +125,15 @@ class IgnacioPrayersApp extends StatelessWidget {
       final settings = context.watch<SettingsData>();
       return MaterialApp(
         title: 'Ignáci imák',
-        theme: AppTheme.createTheme(Brightness.light),
-        darkTheme: AppTheme.createTheme(Brightness.dark),
-        themeMode: settings.themeMode,
+        theme: AppTheme.lightTheme,
+        darkTheme: settings.themeMode == AppThemeMode.oled
+            ? AppTheme.oledTheme
+            : AppTheme.darkTheme, // Default dark theme
+        themeMode: switch (settings.themeMode) {
+          AppThemeMode.light => ThemeMode.light,
+          AppThemeMode.dark || AppThemeMode.oled => ThemeMode.dark,
+          _ => ThemeMode.system,
+        },
         navigatorObservers: [SentryNavigatorObserver()],
         initialRoute: Routes.home,
         onGenerateRoute: Routes.onGenerateRoute,

@@ -132,3 +132,30 @@ sentry:
   dart_symbol_map_path: build/mapping.json
   symbols_path: build/symbols
   url_prefix: ~/flutter/
+
+flutter_launcher_icons:
+  # The main image path. If not specified, the package will look for an icon in assets/icon/icon.png
+  image_path: "assets/icon/icon.png"
+  min_sdk_android: 21
+
+  # Android specific settings
+  android: "launcher_icon" # can be true to use default icon name
+  adaptive_icon_background: "assets/icon/icon_background.png"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  adaptive_icon_monochrome: "assets/icon/icon_monochrome.png"
+
+  # iOS specific settings
+  ios: true
+  remove_alpha_ios: true
+
+  # Web specific settings
+  web:
+    generate: true
+    background_color: "#ffffff"
+    theme_color: "#ba0527"
+
+  # Desktop specific settings
+  windows:
+    generate: true
+  macos:
+    generate: true

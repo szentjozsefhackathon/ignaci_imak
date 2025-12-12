@@ -88,4 +88,5 @@ web/favicon.png
 web/icons/Icon-*.png
 
 .env
+key.properties
 sentry.properties

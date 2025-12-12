@@ -93,7 +93,7 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
                             : null,
                       ),
                       ...widget.prayer.voiceOptions.map((voice) {
-                        final available = data.contains(voice);
+                        final available = kIsWeb || data.contains(voice);
                         return RadioListTile(
                           title: Text(voice),
                           subtitle: available

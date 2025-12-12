@@ -1,12 +1,13 @@
 import 'dart:convert' show json;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show ChangeNotifier, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'common.dart';
+import '../theme.dart';
 
 part 'settings_data.g.dart';
 
@@ -15,7 +16,7 @@ const _kUserSettings = 'userData';
 @JsonSerializable()
 class SettingsData extends ChangeNotifier implements DataDescriptor {
   SettingsData({
-    ThemeMode themeMode = ThemeMode.system,
+    AppThemeMode themeMode = AppThemeMode.system,
     bool dnd = !kIsWeb,
     bool reminderNotifications = !kIsWeb,
     bool autoPageTurn = true,
@@ -34,14 +35,13 @@ class SettingsData extends ChangeNotifier implements DataDescriptor {
 
   static final log = Logger('UserSettingsData');
 
-  ThemeMode _themeMode;
-  ThemeMode get themeMode => _themeMode;
-  set themeMode(ThemeMode newValue) {
-    if (_themeMode != newValue) {
-      _themeMode = newValue;
-      save();
-      notifyListeners();
-    }
+  AppThemeMode _themeMode;
+  AppThemeMode get themeMode => _themeMode;
+  set themeMode(AppThemeMode newValue) {
+    if (_themeMode == newValue) return;
+    _themeMode = newValue;
+    save();
+    notifyListeners();
   }
 
   bool _dnd;
@@ -50,11 +50,10 @@ class SettingsData extends ChangeNotifier implements DataDescriptor {
     if (kIsWeb) {
       return;
     }
-    if (_dnd != newValue) {
-      _dnd = newValue;
-      save();
-      notifyListeners();
-    }
+    if (_dnd == newValue) return;
+    _dnd = newValue;
+    save();
+    notifyListeners();
   }
 
   bool _reminderNotifications;
@@ -63,11 +62,10 @@ class SettingsData extends ChangeNotifier implements DataDescriptor {
     if (kIsWeb) {
       return;
     }
-    if (_reminderNotifications != newValue) {
-      _reminderNotifications = newValue;
-      save();
-      notifyListeners();
-    }
+    if (_reminderNotifications == newValue) return;
+    _reminderNotifications = newValue;
+    save();
+    notifyListeners();
   }
 
   bool _autoPageTurn;
@@ -116,25 +114,25 @@ class SettingsData extends ChangeNotifier implements DataDescriptor {
   Future<void> load() async {
     log.info('Reading user preferences from storage');
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonData = prefs.getString(_kUserSettings);
+      final jsonData =
+          (await SharedPreferences.getInstance()).getString(_kUserSettings);
 
-      final SettingsData newData;
       if (jsonData == null) {
         log.info(
           'No saved user preferences are found, initializing with defaults',
         );
-        newData = SettingsData();
+        // No saved data, do nothing and keep the default values.
       } else {
-        newData = SettingsData.fromJson(json.decode(jsonData));
+        final newData = SettingsData.fromJson(json.decode(jsonData));
+        _themeMode = newData.themeMode;
+        _dnd = newData.dnd;
+        _reminderNotifications = newData.reminderNotifications;
+        _autoPageTurn = newData.autoPageTurn;
+        _prayerLength = newData.prayerLength;
+        _prayerSoundEnabled = newData.prayerSoundEnabled;
+        _voiceChoice = newData.voiceChoice;
       }
-      _themeMode = newData.themeMode;
-      _dnd = newData.dnd;
-      _reminderNotifications = newData.reminderNotifications;
-      _autoPageTurn = newData.autoPageTurn;
-      _prayerLength = newData.prayerLength;
-      _prayerSoundEnabled = newData.prayerSoundEnabled;
-      _voiceChoice = newData.voiceChoice;
+
       notifyListeners();
     } catch (e, s) {
       log.severe('Error reading user preferences: $e', e, s);
