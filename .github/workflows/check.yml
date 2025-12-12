@@ -40,7 +40,7 @@ jobs:
         with:
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
-          exclude: SENTRY_DSN
+          exclude: SENTRY_DSN, FLUTTER_ROOT, PUB_CACHE
 
       - name: Install dependencies
         run: flutter pub get

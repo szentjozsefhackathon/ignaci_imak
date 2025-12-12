@@ -7,8 +7,7 @@ jobs:
   build:
     name: Build & release app
     runs-on: macos-latest
-    env:
-      SENTRY_ENVIRONMENT: prod
+    environment: teszt
 
     steps:
       - name: Check if branch is main
@@ -44,6 +43,7 @@ jobs:
         with:
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
+          exclude: FLUTTER_ROOT, PUB_CACHE
 
       - name: Install dependencies
         run: flutter pub get
