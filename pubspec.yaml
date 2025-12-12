@@ -132,3 +132,18 @@ sentry:
   dart_symbol_map_path: build/mapping.json
   symbols_path: build/symbols
   url_prefix: ~/flutter/
+
+flutter_launcher_icons:
+  android: true
+  adaptive_icon_background: "assets/icon/icon_background.png"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  adaptive_icon_monochrome: "assets/icon/icon_monochrome.png"
+  ios: true
+  image_path: "assets/icon/app_icon.png" # The path to your icon image
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 48 # The size of the icon for Windows
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
