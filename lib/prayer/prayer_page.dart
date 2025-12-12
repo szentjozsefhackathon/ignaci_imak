@@ -152,8 +152,10 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   Future<void> _loadAudio(String filename) async {
     try {
       if (kIsWeb) {
+        await _audioPlayer.stop();
+        final uri = DataManager.instance.voices.getDownloadUri(filename);
         await _audioPlayer.setAudioSource(
-          AudioSource.uri(DataManager.instance.voices.getDownloadUri(filename)),
+          AudioSource.uri(uri),
           initialPosition: Duration.zero,
         );
       } else {
@@ -350,10 +352,8 @@ class _PageIndicatorState extends State<_PageIndicator> {
 
   void _scrollToCurrentDot() {
     final offset = (widget.currentPageIndex * _kDotWidth) - (_kDotWidth * 2);
-    _scrollController.animateTo(
-      offset < 0 ? 0 : offset,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+    _scrollController.jumpTo(
+      offset < 0 ? 0 : offset
     );
   }
 

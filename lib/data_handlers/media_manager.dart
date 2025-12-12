@@ -93,6 +93,7 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
 
   Future<bool> _downloadAndSaveFile(MediaData m, BaseClient client) async {
     try {
+      log.info('Downloading file: ${m.name} from ${getDownloadUri(m.name)}');
       final response = await client.get(getDownloadUri(m.name));
       if (response.statusCode == 200) {
         final file = await _getLocalFile(m.name, checkExists: false);
@@ -102,11 +103,11 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
         return true;
       } else {
         log.severe(
-          'Failed to download $m, status code: ${response.statusCode}',
+          'Failed to download ${m.name}, status code: ${response.statusCode}',
         );
       }
     } catch (e, s) {
-      log.severe('Error during sync $m: $e', e, s);
+      log.severe('Error during sync ${m.name}: $e', e, s);
     }
     return false;
   }

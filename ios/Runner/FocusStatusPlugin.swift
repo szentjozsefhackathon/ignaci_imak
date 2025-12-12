@@ -2,22 +2,6 @@ import Flutter
 import UIKit
 import Intents // Needed for INFocusStatusCenter
 
-
-@main
-@objc class AppDelegate: FlutterAppDelegate {
-  override func application(
-    _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-  ) -> Bool {
-    // Register plugins that are automatically discovered by the Flutter tool.
-    GeneratedPluginRegistrant.register(with: self)
-
-    // Manually register our custom FocusStatusPlugin.
-    FocusStatusPlugin.register(with: self.registrar(forPlugin: "FocusStatusPlugin")!)
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-  }
-}
-
 // Define a unique KVO context to avoid potential conflicts.
 private var focusStatusKVOContext = 0
 
@@ -99,7 +83,7 @@ public class FocusStatusPlugin: NSObject, FlutterPlugin {
 
     private func openFocusSettings(result: @escaping FlutterResult) {
         if #available(iOS 16.0, *) {
-            if let url = URL(string: UIApplication.openSettingsURLString) {
+            if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                 UIApplication.shared.open(url)
                 result(true)
                 return
