@@ -72,7 +72,7 @@ class Notifications with ChangeNotifier {
         linux: LinuxInitializationSettings(defaultActionName: 'Megnyitás'),
         windows: WindowsInitializationSettings(
           appName: 'Ignáci imák',
-          appUserModelId: 'hu.jezsuita.ima.ignaci',
+          appUserModelId: 'hu.jezsuita.ignaciima',
           guid: '349fd997-d211-4ac7-9690-8ed1bb184196',
         ),
       ),
