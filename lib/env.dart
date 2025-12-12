@@ -2,7 +2,12 @@ import 'package:envied/envied.dart';
 
 part 'env.g.dart';
 
-@Envied(allowOptionalFields: true, useConstantCase: true)
+@Envied(
+  allowOptionalFields: true,
+  useConstantCase: true,
+  // ignore: avoid_redundant_argument_values
+  environment: bool.fromEnvironment('CI'),
+)
 abstract class Env {
   @EnviedField(optional: false)
   static const String serverUrl = _Env.serverUrl;
