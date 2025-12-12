@@ -8,8 +8,7 @@ import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart';
-
-import 'theme.dart' show kColorSchemeSeed;
+import 'theme.dart'; // Import the entire theme.dart to access AppTheme
 
 export 'package:flutter_local_notifications/flutter_local_notifications.dart'
     show DateTimeComponents;
@@ -33,7 +32,7 @@ class Notifications with ChangeNotifier {
     android: AndroidNotificationDetails(
       _androidChannel.id,
       _androidChannel.name,
-      color: kColorSchemeSeed,
+      color: AppTheme.kSeedColor, // Use the seed color from AppTheme
       priority: Priority.high,
       importance: _androidChannel.importance,
       category: AndroidNotificationCategory.reminder,

@@ -1,4 +1,4 @@
-package hu.jezsuita.ima.ignaci
+package hu.jezsuita.ignaciima
 
 import io.flutter.embedding.android.FlutterActivity
 

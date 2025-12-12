@@ -8,6 +8,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../data/settings_data.dart';
 import '../notifications.dart';
+import '../theme.dart';
 import '../routes.dart';
 import 'dnd.dart';
 
@@ -46,12 +47,13 @@ class SettingsPage extends StatelessWidget {
             },
             child: Column(
               children: [
-                for (final mode in ThemeMode.values)
+                for (final mode in AppThemeMode.values)
                   RadioListTile(
                     title: Text(switch (mode) {
-                      ThemeMode.system => 'rendszer',
-                      ThemeMode.light => 'világos',
-                      ThemeMode.dark => 'sötét',
+                      AppThemeMode.system => 'Rendszer',
+                      AppThemeMode.light => 'Világos',
+                      AppThemeMode.dark => 'Sötét',
+                      AppThemeMode.oled => 'Fekete (OLED)',
                     }),
                     value: mode,
                   ),
