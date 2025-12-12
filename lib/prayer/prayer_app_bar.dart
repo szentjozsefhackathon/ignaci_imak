@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
 import '../data/prayer.dart';
 import '../data/prayer_group.dart';
@@ -64,22 +65,32 @@ class PrayerAppBar extends StatelessWidget {
       flexibleSpace: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final currentHeight = constraints.biggest.height;
-          final percentage =
-              (currentHeight - opts.collapsedHeight) /
-              (opts.expandedHeight - opts.collapsedHeight);
+          final double difference = opts.expandedHeight - opts.collapsedHeight;
+          double percentage;
+          if (difference <= 0) {
+            // If expandedHeight is not greater than collapsedHeight,
+            // the space bar cannot expand. Treat it as fully collapsed.
+            percentage = 0.0;
+          } else {
+            percentage = (currentHeight - opts.collapsedHeight) / difference;
+          }
+          percentage = percentage.clamp(0.0, 1.0); // Clamp the final percentage
           final t = (percentage * 10).roundToDouble() / 10;
           return FlexibleSpaceBar(
-            title: buildTitle(opts, percentage < 0.3),
+            title: buildTitle(opts, percentage < 0.2),
             titlePadding: EdgeInsets.fromLTRB(
               Tween<double>(begin: 56, end: 24).transform(t),
               14,
               actions == null
                   ? 12
                   : Tween<double>(
-                      begin: actions!.length * kMinInteractiveDimension,
+                      begin: (actions!.length * kMinInteractiveDimension) + 12,
                       end: 12,
                     ).transform(t),
-              14,
+              // add more bottom padding when subtitle is visible
+              opts.subtitleVisible
+                  ? Tween<double>(begin: 24, end: 14).transform(t)
+                  : 14,
             ),
             background: background,
           );
@@ -94,11 +105,11 @@ class PrayerAppBarOptions {
     final mq = MediaQuery.of(context);
     final screenSize = mq.size;
     final hasSubtitle = groupAndPrayer && screenSize.width > 600;
+    final collapsedHeight = mq.padding.top + kToolbarHeight;
 
     return PrayerAppBarOptions._(
-      collapsedHeight:
-          mq.padding.top + (kToolbarHeight * (hasSubtitle ? 1.5 : 1)),
-      expandedHeight: screenSize.height * 0.3,
+      collapsedHeight: collapsedHeight,
+      expandedHeight: math.max(screenSize.height * 0.3, collapsedHeight + kToolbarHeight),
       subtitleVisible: hasSubtitle,
     );
   }

@@ -38,8 +38,17 @@ class Notifications with ChangeNotifier {
       importance: _androidChannel.importance,
       category: AndroidNotificationCategory.reminder,
     ),
-    iOS: const DarwinNotificationDetails(),
-    macOS: const DarwinNotificationDetails(),
+    // enable presentation on iOS/macOS so notifications are visible (including foreground)
+    iOS: const DarwinNotificationDetails(
+      presentAlert: true,
+      presentSound: true,
+      presentBadge: true,
+    ),
+    macOS: const DarwinNotificationDetails(
+      presentAlert: true,
+      presentSound: true,
+      presentBadge: true,
+    ),
     linux: const LinuxNotificationDetails(
       resident: true,
       urgency: LinuxNotificationUrgency.normal,
@@ -53,13 +62,22 @@ class Notifications with ChangeNotifier {
   bool? get hasPermission => _hasPermission;
 
   Future<void> initialize() async {
+    // ensure tz database loaded before any TZDateTime usage
     tz.initializeTimeZones();
 
     final initialized = await _n.initialize(
       const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/launcher_icon'),
-        iOS: DarwinInitializationSettings(),
-        macOS: DarwinInitializationSettings(),
+        iOS: DarwinInitializationSettings(
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        ),
+        macOS: DarwinInitializationSettings(
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        ),
         linux: LinuxInitializationSettings(defaultActionName: 'Megnyitás'),
         windows: WindowsInitializationSettings(
           appName: 'Ignáci imák',
@@ -69,16 +87,22 @@ class Notifications with ChangeNotifier {
       ),
       onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
     );
-    if (initialized != true) {
-      return;
-    }
 
+    if (initialized != true) return;
+
+    // Create Android notification channel
     if (Platform.isAndroid) {
       await _n
           .resolvePlatformSpecificImplementation<_Android>()
           ?.createNotificationChannel(_androidChannel);
     }
 
+    // On iOS & macOS, always request permission explicitly
+    if (Platform.isIOS || Platform.isMacOS) {
+      await requestPermissions();
+    }
+
+    // After requesting, check and cache the permission result
     _hasPermission = await _checkPermissions();
     notifyListeners();
   }
@@ -134,6 +158,7 @@ class Notifications with ChangeNotifier {
         'requestPermissions is not implemented on ${Platform.operatingSystem}',
       );
     }
+
     if (result != null && result != _hasPermission) {
       _hasPermission = result;
       notifyListeners();
@@ -153,7 +178,7 @@ class Notifications with ChangeNotifier {
     await _n.zonedSchedule(
       maxId + 1,
       'Ignáci ima',
-      'Ignáci ima értesítő',
+      'Itt az ideje egy kicsit elcsendesedni 🙏',
       dateTime,
       _notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -330,7 +355,13 @@ class _AddBottomSheetState extends State<_AddBottomSheet> {
   @override
   void initState() {
     super.initState();
-    _dateTime = TZDateTime.now(local);
+    // Ensure we have a valid TZDateTime even if timezone DB wasn't initialized yet.
+    try {
+      _dateTime = TZDateTime.now(local);
+    } catch (_) {
+      tz.initializeTimeZones();
+      _dateTime = TZDateTime.now(local);
+    }
   }
 
   String _monthLabel([int? month]) => _kMonthFormat.format(

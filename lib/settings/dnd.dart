@@ -1,5 +1,5 @@
 import 'package:do_not_disturb/do_not_disturb.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
@@ -18,8 +18,11 @@ class DndProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   InterruptionFilter? _statusBeforeEnable;
 
+  // file-local helper: true only on Android (and false on web/iOS/etc.)
+  bool get _isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
   Future<void> _checkAccess() async {
-    if (kIsWeb) {
+    if (!_isAndroid) {
       return;
     }
     bool? hasAccess;
@@ -35,7 +38,7 @@ class DndProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> allowAlarmsOnly() async {
-    if (kIsWeb) {
+    if (!_isAndroid) {
       return;
     }
     if (_hasAccess ?? false) {
