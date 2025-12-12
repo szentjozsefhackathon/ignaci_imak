@@ -32,9 +32,11 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Create .env file
-        uses: 0ndt/envfile@v2
+        uses: jakubcieslik99/secrets-vars-to-env-file-action@main
         with:
           secrets: ${{ toJSON(secrets) }}
+          vars: ${{ toJSON(vars) }}
+          exclude: SENTRY_DSN
 
       - name: Install dependencies
         run: flutter pub get
