@@ -1,3 +1,5 @@
+import 'dart:async' show TimeoutException;
+
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' show BaseClient;
@@ -12,8 +14,11 @@ import '../env.dart';
 import 'data_set_manager.dart';
 
 class MediaManager extends ListDataSetManagerBase<MediaData> {
-  MediaManager({required super.dataKey, required super.dataUrlEndpoint})
-    : super(logName: 'MediaManager', fromJson: MediaData.fromJson);
+  MediaManager({
+    required super.dataKey,
+    required super.dataUrlEndpoint,
+    required super.requestTimeout,
+  }) : super(logName: 'MediaManager', fromJson: MediaData.fromJson);
 
   final _localFileCache = <String, File>{};
 
@@ -92,8 +97,17 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
 
   Future<bool> _downloadAndSaveFile(MediaData m, BaseClient client) async {
     try {
-      log.info('Downloading file: ${m.name} from ${getDownloadUri(m.name)}');
-      final response = await client.get(getDownloadUri(m.name));
+      final uri = getDownloadUri(m.name);
+      log.info('Downloading file: ${m.name} from $uri');
+      final response = await client
+          .get(uri)
+          .timeout(
+            requestTimeout,
+            onTimeout: () => throw TimeoutException(
+              'A kérés nem sikerült a rendelkezésre álló időn belül: $uri',
+              requestTimeout,
+            ),
+          );
       if (response.statusCode == 200) {
         final file = await _getLocalFile(m.name, checkExists: false);
         await file.writeAsBytes(response.bodyBytes);

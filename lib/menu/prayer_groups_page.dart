@@ -1,4 +1,4 @@
-import 'dart:async' show unawaited;
+import 'dart:async' show TimeoutException, unawaited;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -58,8 +58,7 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
         setState(() => _items = prayerGroups);
       }
     } catch (e, s) {
-      final error = e.toString();
-      debugPrintStack(label: error, stackTrace: s);
+      debugPrintStack(label: e.toString(), stackTrace: s);
       if (!mounted) {
         return;
       }
@@ -68,7 +67,12 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Hiba történt'),
-            content: Text(error),
+            content: Text(switch (e) {
+              final TimeoutException timeout =>
+                timeout.message ??
+                    'Időtúllépés${timeout.duration == null ? '' : ' (${timeout.duration})'}',
+              _ => e.toString(),
+            }),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),

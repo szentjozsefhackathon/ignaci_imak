@@ -1,3 +1,4 @@
+import 'dart:async' show TimeoutException;
 import 'dart:convert';
 
 import 'package:logging/logging.dart';
@@ -15,11 +16,13 @@ abstract class DataSetManagerBase<T extends ToJson, Item extends ToJson> {
     required this.dataKey,
     required this.dataUrlEndpoint,
     required this.fromJson,
+    required this.requestTimeout,
   }) : log = Logger('$logName ($dataKey)');
 
   final Logger log;
   final String dataKey;
   final Uri dataUrlEndpoint;
+  final Duration requestTimeout;
   final Item Function(Map<String, dynamic>) fromJson;
 
   T? _cachedServerData;
@@ -42,7 +45,15 @@ abstract class DataSetManagerBase<T extends ToJson, Item extends ToJson> {
       failedRequestStatusCodes: [SentryStatusCode.range(201, 599)],
     );
     try {
-      final response = await client.get(dataUrlEndpoint);
+      final response = await client
+          .get(dataUrlEndpoint)
+          .timeout(
+            requestTimeout,
+            onTimeout: () => throw TimeoutException(
+              'A kérés nem sikerült a rendelkezésre álló időn belül: $dataUrlEndpoint',
+              requestTimeout,
+            ),
+          );
       return response.body;
     } finally {
       client.close();
@@ -130,6 +141,7 @@ class DataSetManager<T extends DataDescriptor> extends DataSetManagerBase<T, T>
     required super.dataKey,
     required super.dataUrlEndpoint,
     required super.fromJson,
+    required super.requestTimeout,
   }) : super(logName: 'DataSetManager');
 
   @override
@@ -143,6 +155,7 @@ abstract class ListDataSetManagerBase<T extends DataDescriptor>
     required super.dataKey,
     required super.dataUrlEndpoint,
     required super.fromJson,
+    required super.requestTimeout,
   });
 
   @override
@@ -157,6 +170,7 @@ class ListDataSetManager<T extends DataDescriptor>
     required super.dataKey,
     required super.dataUrlEndpoint,
     required super.fromJson,
+    required super.requestTimeout,
   }) : super(logName: 'ListDataSetManager');
 
   @override

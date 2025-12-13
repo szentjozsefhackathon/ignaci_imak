@@ -8,29 +8,35 @@ import 'media_manager.dart';
 
 // TODO: make this a povider
 
+const kRequestTimeout = Duration(seconds: 10);
+
 class DataManager {
   DataManager._() {
     versions = DataSetManager<Versions>(
       dataKey: 'versionsData',
       dataUrlEndpoint: Env.serverUri.replace(path: Env.serverCheckVersionsPath),
       fromJson: Versions.fromJson,
+      requestTimeout: kRequestTimeout,
     );
     prayerGroups = ListDataSetManager<PrayerGroup>(
       dataKey: 'prayerGroupsData',
       dataUrlEndpoint: Env.serverUri.replace(path: Env.serverDownloadDataPath),
       fromJson: PrayerGroup.fromJson,
+      requestTimeout: kRequestTimeout,
     );
     images = MediaManager(
       dataKey: 'images',
       dataUrlEndpoint: Env.serverUri.replace(
         path: '${Env.serverMediaPathPrefix}sync-images',
       ),
+      requestTimeout: kRequestTimeout,
     );
     voices = MediaManager(
       dataKey: 'voices',
       dataUrlEndpoint: Env.serverUri.replace(
         path: '${Env.serverMediaPathPrefix}sync-voices',
       ),
+      requestTimeout: kRequestTimeout,
     );
   }
 
