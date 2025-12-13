@@ -240,6 +240,7 @@ class MeditationFocusHint extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 8,
               children: [
                 Text(
                   'Az elmélyüléshez javasolt a Fókusz mód (pl. Ne zavarjanak) használata',
@@ -248,52 +249,49 @@ class MeditationFocusHint extends StatelessWidget {
                     color: colorScheme.onTertiaryContainer,
                   ),
                 ),
-                const SizedBox(height: 8),
                 Text(
                   'Kapcsold be a Fókusz módot, hogy semmi ne zavarjon imádság közben.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onTertiaryContainer,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ElevatedButton(
-                    onPressed: () => launchUrl(Uri.parse(_runShortcutLink)),
-                    child: const Text('Ignáci fókusz bekapcsolása'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      onPressed: () => launchUrl(Uri.parse(_runShortcutLink)),
+                      child: const Text('Ignáci fókusz bekapcsolása'),
+                    ),
                   ),
                 ),
-                OverflowBar(
-                  alignment: MainAxisAlignment.end,
-                  spacing: 8,
-                  children: [
-                    Text(
-                      'Ha a fenti gomb nem működik ("A(z) "$_shortcutName" parancs nem található"), add hozzá a parancsaidhoz a gomb segítségével.',
-                      textAlign: TextAlign.left,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onTertiaryContainer,
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton(
-                        onPressed: () => launchUrl(
-                          Uri.parse(_shortcutLink),
-                          mode: LaunchMode.externalApplication,
-                        ),
-                        child: const Text('Parancs hozzáadása'),
-                      ),
-                    ),
-                    Text(
-                      'A továbbiakban ezt a parancsot kedved szerint módosíthatod. Fontos hogy az "Ignáci fókusz bekapcsolása" gomb csak akkor működik, ha a parancs neve pontosan „$_shortcutName”.',
-                      textAlign: TextAlign.left,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onTertiaryContainer,
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Ha a fenti gomb nem működik ("A(z) "$_shortcutName" parancs nem található"), add hozzá a parancsaidhoz a gomb segítségével.',
+                  textAlign: TextAlign.left,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onTertiaryContainer,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      onPressed: () => launchUrl(
+                        Uri.parse(_shortcutLink),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      child: const Text('Parancs hozzáadása'),
+                    ),
+                  ),
+                ),
+                Text(
+                  'A továbbiakban ezt a parancsot kedved szerint módosíthatod. Fontos hogy az "Ignáci fókusz bekapcsolása" gomb csak akkor működik, ha a parancs neve pontosan „$_shortcutName”.',
+                  textAlign: TextAlign.left,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onTertiaryContainer,
+                  ),
+                ),
               ],
             ),
           ),
