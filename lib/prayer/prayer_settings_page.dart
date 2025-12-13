@@ -79,7 +79,9 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
                     children: [
                       SwitchListTile(
                         title: const Text('Hang'),
-                        value: settings.prayerSoundEnabled && (kIsWeb || data.isNotEmpty),
+                        value:
+                            settings.prayerSoundEnabled &&
+                            (kIsWeb || data.isNotEmpty),
                         onChanged: kIsWeb || data.isNotEmpty
                             ? (v) => settings.prayerSoundEnabled = v
                             : null,
