@@ -1,4 +1,4 @@
-import 'dart:async' show TimeoutException, unawaited;
+import 'dart:async' show TimeoutException;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -22,6 +22,7 @@ enum _DataSyncNotification { none, download, update }
 
 class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
   DataList<PrayerGroup>? _items;
+  Object? _error;
   _DataSyncNotification _notification = _DataSyncNotification.none;
 
   @override
@@ -32,6 +33,14 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
   }
 
   Future<void> _loadData() async {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _error = null;
+      _items = null;
+    });
+
     // trigger reloading images
     imageCache.clear();
     imageCache.clearLiveImages();
@@ -62,36 +71,35 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
       if (!mounted) {
         return;
       }
-      unawaited(
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Hiba történt'),
-            content: Text(switch (e) {
-              final TimeoutException timeout =>
-                timeout.message ??
-                    'Időtúllépés${timeout.duration == null ? '' : ' (${timeout.duration})'}',
-              _ => e.toString(),
-            }),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Bezárás'),
-              ),
-            ],
-          ),
-        ),
-      );
+      setState(() => _error = e);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final Widget body;
-    final items = _items?.items;
-    if (items == null) {
+    if (_error != null) {
+      body = Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          spacing: 16,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Hiba történt', style: Theme.of(context).textTheme.bodyLarge),
+            Text(switch (_error) {
+              final TimeoutException timeout =>
+                timeout.message ??
+                    'Időtúllépés${timeout.duration == null ? '' : ' (${timeout.duration})'}',
+              _ => _error.toString(),
+            }),
+            ElevatedButton(onPressed: _loadData, child: const Text('Újra')),
+          ],
+        ),
+      );
+    } else if (_items?.items == null) {
       body = const Center(child: CircularProgressIndicator());
     } else {
+      final items = _items!.items;
       final grid = GridView.builder(
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           mainAxisExtent: 200,
