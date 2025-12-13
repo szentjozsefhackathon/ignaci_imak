@@ -3,15 +3,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:universal_io/universal_io.dart' show Platform;
 
+/// see INFocusStatusAuthorizationStatus
+enum FocusAuthorizationStatus { notDetermined, restricted, denied, authorized }
+
 class FocusStatus {
   static const _channel = MethodChannel('focus_status');
 
-  // null = unsupported/unknown, true = focused, false = not focused
+  /// null = unsupported/unknown, true = focused, false = not focused
   static final status = ValueNotifier<bool?>(null);
 
-  // Based on INFocusStatusAuthorizationStatus: 0=notDetermined, 1=restricted, 2=denied, 3=authorized
-  // null = not an iOS device or status not yet known.
-  static final authorizationStatus = ValueNotifier<int?>(null);
+  /// null = not an iOS device or status not yet known
+  static final authorizationStatus = ValueNotifier<FocusAuthorizationStatus?>(
+    null,
+  );
 
   /// Initializes the FocusStatus service.
   ///
@@ -61,14 +65,15 @@ class FocusStatus {
       // The native side now returns the current focus state upon authorization.
       final isFocused = await _channel.invokeMethod('getFocusStatus');
       // If successful, we know we are authorized.
-      authorizationStatus.value = 3;
+      authorizationStatus.value = FocusAuthorizationStatus.authorized;
       if (isFocused is bool) {
         status.value = isFocused;
       }
     } on PlatformException catch (e) {
       if (e.code == 'UNAUTHORIZED') {
         // App not granted Focus access — treat as "not focused" so UI can offer Settings
-        authorizationStatus.value = e.details as int?;
+        authorizationStatus.value =
+            FocusAuthorizationStatus.values[e.details as int];
         status.value = false;
       }
       // For other errors (like 'UNSUPPORTED'), status remains null.

@@ -188,7 +188,7 @@ class MeditationFocusHint extends StatelessWidget {
         final colorScheme = theme.colorScheme;
 
         // User has explicitly denied permission.
-        if (authStatus == 2) {
+        if (authStatus == FocusAuthorizationStatus.denied) {
           return Card(
             color: colorScheme.tertiaryContainer,
             margin: const EdgeInsets.all(12),
