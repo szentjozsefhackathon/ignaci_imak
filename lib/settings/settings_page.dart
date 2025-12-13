@@ -1,10 +1,9 @@
-import 'dart:io' show Platform;
-
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:universal_io/universal_io.dart' show Platform;
 
 import '../data/settings_data.dart';
 import '../notifications.dart';

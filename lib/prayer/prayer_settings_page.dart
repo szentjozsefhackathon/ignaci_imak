@@ -1,8 +1,7 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:universal_io/universal_io.dart' show Platform;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/prayer.dart';

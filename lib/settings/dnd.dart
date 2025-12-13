@@ -1,10 +1,9 @@
-import 'dart:io' show Platform;
-
 import 'package:do_not_disturb/do_not_disturb.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
+import 'package:universal_io/universal_io.dart' show Platform;
 
 class DndProvider extends ChangeNotifier with WidgetsBindingObserver {
   DndProvider() {

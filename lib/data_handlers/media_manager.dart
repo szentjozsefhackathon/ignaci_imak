@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' show BaseClient;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:universal_io/universal_io.dart';
 
 import '../data/common.dart';
 import '../data/media_data.dart';

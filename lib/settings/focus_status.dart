@@ -1,8 +1,7 @@
-import 'dart:io' show Platform;
-
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:universal_io/universal_io.dart' show Platform;
 
 class FocusStatus {
   static const _channel = MethodChannel('focus_status');

@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -9,6 +7,8 @@ import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart';
+import 'package:universal_io/universal_io.dart' show Platform;
+
 import 'theme.dart' show kThemeSeedColor;
 
 export 'package:flutter_local_notifications/flutter_local_notifications.dart'
