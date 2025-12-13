@@ -5,7 +5,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
-import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart';
 import 'package:universal_io/universal_io.dart' show Platform;
 
@@ -65,9 +64,6 @@ class Notifications with ChangeNotifier {
     if (kIsWeb) {
       return;
     }
-
-    // ensure tz database loaded before any TZDateTime usage
-    tz.initializeTimeZones();
 
     final initialized = await _n.initialize(
       const InitializationSettings(
@@ -360,13 +356,7 @@ class _AddBottomSheetState extends State<_AddBottomSheet> {
   @override
   void initState() {
     super.initState();
-    // Ensure we have a valid TZDateTime even if timezone DB wasn't initialized yet.
-    try {
-      _dateTime = TZDateTime.now(local);
-    } catch (_) {
-      tz.initializeTimeZones();
-      _dateTime = TZDateTime.now(local);
-    }
+    _dateTime = TZDateTime.now(local);
   }
 
   String _monthLabel([int? month]) => _kMonthFormat.format(

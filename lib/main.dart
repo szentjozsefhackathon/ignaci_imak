@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
@@ -8,6 +9,10 @@ import 'package:provider/provider.dart';
 import 'package:relative_time/relative_time.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sentry_logging/sentry_logging.dart';
+import 'package:timezone/data/latest_all.dart' as tzdb;
+import 'package:timezone/timezone.dart'
+    if (dart.library.js_interop) 'package:timezone/browser.dart'
+    as tz;
 import 'package:universal_io/universal_io.dart' show Platform;
 
 import 'data/settings_data.dart';
@@ -30,6 +35,12 @@ void main() async {
     usePathUrlStrategy();
   }
   Intl.defaultLocale = 'hu';
+
+  tzdb.initializeTimeZones();
+  final localTz = await FlutterTimezone.getLocalTimezone();
+  final location = tz.getLocation(localTz.identifier);
+  tz.setLocalLocation(location);
+  Logger.root.fine('Local timezone: $location');
 
   if (!kIsWeb && Platform.isIOS) {
     await FocusStatus.init();
