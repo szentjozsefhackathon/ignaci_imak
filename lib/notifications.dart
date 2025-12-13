@@ -67,7 +67,9 @@ class Notifications with ChangeNotifier {
 
     final initialized = await _n.initialize(
       const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/launcher_icon'),
+        android: AndroidInitializationSettings(
+          '@drawable/ic_stat_notification',
+        ),
         iOS: DarwinInitializationSettings(),
         macOS: DarwinInitializationSettings(),
         linux: LinuxInitializationSettings(defaultActionName: 'Megnyitás'),
