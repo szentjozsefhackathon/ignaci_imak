@@ -23,17 +23,19 @@ class SettingsPage extends StatelessWidget {
       appBar: AppBar(title: const Text('Beállítások')),
       body: ListView(
         children: [
-          if (Platform.isAndroid)
-            DndSwitchListTile(
-              value: settings.dnd,
-              onChanged: (v) => settings.dnd = v,
-            ),
-          if (Platform.isAndroid && settings.dnd)
-            ListTile(
-              title: const Text('Ne zavarjanak további beállításai'),
-              trailing: const Icon(Icons.open_in_new_rounded),
-              onTap: () => context.read<DndProvider>().openSettings(),
-            ),
+          if (!kIsWeb) ...[
+            if (Platform.isAndroid)
+              DndSwitchListTile(
+                value: settings.dnd,
+                onChanged: (v) => settings.dnd = v,
+              ),
+            if (Platform.isAndroid && settings.dnd)
+              ListTile(
+                title: const Text('Ne zavarjanak további beállításai'),
+                trailing: const Icon(Icons.open_in_new_rounded),
+                onTap: () => context.read<DndProvider>().openSettings(),
+              ),
+          ],
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Text('Téma'),

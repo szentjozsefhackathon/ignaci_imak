@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
@@ -61,6 +62,10 @@ class Notifications with ChangeNotifier {
   bool? get hasPermission => _hasPermission;
 
   Future<void> initialize() async {
+    if (kIsWeb) {
+      return;
+    }
+
     // ensure tz database loaded before any TZDateTime usage
     tz.initializeTimeZones();
 
@@ -131,6 +136,9 @@ class Notifications with ChangeNotifier {
   }
 
   Future<bool?> requestPermissions() async {
+    if (kIsWeb) {
+      return null;
+    }
     bool? result;
     if (Platform.isAndroid) {
       final impl = _n.resolvePlatformSpecificImplementation<_Android>();
@@ -215,6 +223,8 @@ class NotificationsSwitchListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    assert(!kIsWeb);
+
     final notifications = context.watch<Notifications>();
     final hasPermission = notifications.hasPermission;
     if (hasPermission == null) {
@@ -283,6 +293,8 @@ class NotificationsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    assert(!kIsWeb);
+
     final notifications = context.watch<Notifications>();
     return FutureBuilder(
       future: notifications.scheduledNotifications,
