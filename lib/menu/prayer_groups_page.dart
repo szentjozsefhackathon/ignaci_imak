@@ -1,8 +1,12 @@
-import 'dart:async' show TimeoutException;
+import 'dart:async' show TimeoutException, StreamSubscription;
 
+import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:provider/provider.dart' show ReadContext;
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:universal_io/universal_io.dart';
 
 import '../data/common.dart';
 import '../data/prayer_group.dart';
@@ -24,12 +28,27 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
   DataList<PrayerGroup>? _items;
   Object? _error;
   _DataSyncNotification _notification = _DataSyncNotification.none;
+  StreamSubscription<InternetConnectionStatus>? _connectionStatusSub;
 
   @override
   void initState() {
     super.initState();
     _loadData();
     SentryFlutter.currentDisplay()?.reportFullyDisplayed();
+    _connectionStatusSub = context
+        .read<InternetConnectionChecker>()
+        .onStatusChange
+        .listen((s) {
+          if (_error != null && s != InternetConnectionStatus.disconnected) {
+            _loadData();
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    _connectionStatusSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -48,16 +67,25 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
     try {
       if (!kIsWeb) {
         final hasData = await DataManager.instance.versions.localDataExists;
-        final server = await DataManager.instance.checkForUpdates(
-          stopOnError: true,
-        );
-        if (!hasData) {
-          // there was no local data before checkForUpdates
-          _notification = _DataSyncNotification.download;
-        } else {
-          final local = await DataManager.instance.versions.data;
-          if (local.isUpdateAvailable(server)) {
-            _notification = _DataSyncNotification.update;
+        if (!hasData && mounted) {
+          final connectionChecker = context.read<InternetConnectionChecker>();
+          if (!await connectionChecker.hasConnection) {
+            throw const SocketException(
+              'Nincs internetkapcsolat',
+              osError: OSError('', 101),
+            );
+          }
+          final server = await DataManager.instance.checkForUpdates(
+            stopOnError: true,
+          );
+          if (!hasData) {
+            // there was no local data before checkForUpdates
+            _notification = _DataSyncNotification.download;
+          } else {
+            final local = await DataManager.instance.versions.data;
+            if (local.isUpdateAvailable(server)) {
+              _notification = _DataSyncNotification.update;
+            }
           }
         }
       }
@@ -84,15 +112,37 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
         child: Column(
           spacing: 16,
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Hiba történt', style: Theme.of(context).textTheme.bodyLarge),
+            Text(
+              'Hiba történt',
+              style: Theme.of(context).textTheme.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
             Text(switch (_error) {
-              final TimeoutException timeout =>
-                timeout.message ??
-                    'Időtúllépés${timeout.duration == null ? '' : ' (${timeout.duration})'}',
+              final SocketException e when e.osError?.errorCode == 101 =>
+                'Nincs internetkapcsolat',
+              final TimeoutException e =>
+                e.message ??
+                    'Időtúllépés${e.duration == null ? '' : ' (${e.duration})'}',
               _ => _error.toString(),
-            }),
-            ElevatedButton(onPressed: _loadData, child: const Text('Újra')),
+            }, textAlign: TextAlign.center),
+            if (_error case final SocketException e
+                when e.osError?.errorCode == 101 && Platform.isAndroid)
+              Center(
+                child: ElevatedButton(
+                  onPressed: () => AppSettings.openAppSettings(
+                    type: AppSettingsType.wireless,
+                  ),
+                  child: const Text('Beállítások'),
+                ),
+              ),
+            Center(
+              child: ElevatedButton(
+                onPressed: _loadData,
+                child: const Text('Újra'),
+              ),
+            ),
           ],
         ),
       );
@@ -171,7 +221,7 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
         title: const Text('Ignáci imák'),
         titleSpacing: NavigationToolbar.kMiddleSpacing,
         actions: [
-          const PrayerSearchIconButton(),
+          if (_items?.items != null) const PrayerSearchIconButton(),
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Beállítások',

@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:provider/provider.dart' show ReadContext;
 import 'package:relative_time/relative_time.dart';
 
 import '../data/versions.dart';
@@ -39,10 +41,23 @@ class _DataSyncPageState extends State<DataSyncPage> {
       _serverVersions = null;
       _updating = true;
     });
-    final [v, _] = await Future.wait([
-      DataManager.instance.checkForUpdates(stopOnError: true),
+    final hasConnection = Future.wait([
+      context.read<InternetConnectionChecker>().hasConnection,
       if (!initial) Future.delayed(const Duration(seconds: 2)),
-    ]);
+    ]).then((v) => v.first as bool);
+    if (!await hasConnection) {
+      if (mounted) {
+        setState(() => _updating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nincs internetkapcsolat')),
+        );
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final v = await DataManager.instance.checkForUpdates(stopOnError: true);
     if (!mounted) {
       return;
     }

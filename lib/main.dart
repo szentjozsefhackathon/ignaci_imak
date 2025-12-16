@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
@@ -131,11 +132,21 @@ class IgnacioPrayersApp extends StatelessWidget {
   Widget build(BuildContext context) => MultiProvider(
     providers: [
       ChangeNotifierProvider.value(value: settings),
-      if (!kIsWeb)
+      if (!kIsWeb) ...[
         ChangeNotifierProvider(
           lazy: false,
           create: (_) => Notifications()..initialize(),
         ),
+        Provider(
+          create: (_) => InternetConnectionChecker.createInstance(
+            addresses: [
+              AddressCheckOption(uri: Env.serverUri),
+              AddressCheckOption(uri: Uri.parse('https://google.com')),
+            ],
+          ),
+          dispose: (_, checker) => checker.dispose(),
+        ),
+      ],
       ChangeNotifierProvider(create: (_) => DndProvider()),
     ],
     builder: (context, widget) {

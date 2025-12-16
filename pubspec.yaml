@@ -50,6 +50,7 @@ dependencies:
   fuzzywuzzy: ^1.2.0
   grouped_list: ^6.0.0
   http: ^1.6.0
+  internet_connection_checker: ^3.0.1
   intl: any
   json_annotation: ^4.9.0
   just_audio: ^0.10.5
