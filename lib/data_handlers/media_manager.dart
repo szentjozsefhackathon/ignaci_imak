@@ -104,7 +104,7 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
           .timeout(
             requestTimeout,
             onTimeout: () => throw TimeoutException(
-              'A kérés nem sikerült a rendelkezésre álló időn belül: $uri',
+              'A kérés nem sikerült a rendelkezésre álló időn belül',
               requestTimeout,
             ),
           );
@@ -177,5 +177,6 @@ class MediaManager extends ListDataSetManagerBase<MediaData> {
 
     final localFiles = await _getLocalFiles(ensureExists: false);
     await Future.forEach(localFiles, _deleteFile);
+    _localFileCache.clear();
   }
 }

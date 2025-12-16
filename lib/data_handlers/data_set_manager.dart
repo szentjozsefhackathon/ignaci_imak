@@ -50,7 +50,7 @@ abstract class DataSetManagerBase<T extends ToJson, Item extends ToJson> {
           .timeout(
             requestTimeout,
             onTimeout: () => throw TimeoutException(
-              'A kérés nem sikerült a rendelkezésre álló időn belül: $dataUrlEndpoint',
+              'A kérés nem sikerült a rendelkezésre álló időn belül',
               requestTimeout,
             ),
           );
