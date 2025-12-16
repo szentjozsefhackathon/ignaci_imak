@@ -116,16 +116,21 @@ void main() async {
     };
   });
 
-  runApp(SentryWidget(child: const IgnacioPrayersApp()));
+  final settings = SettingsData();
+  await settings.load();
+
+  runApp(SentryWidget(child: IgnacioPrayersApp(settings: settings)));
 }
 
 class IgnacioPrayersApp extends StatelessWidget {
-  const IgnacioPrayersApp({super.key});
+  const IgnacioPrayersApp({super.key, required this.settings});
+
+  final SettingsData settings;
 
   @override
   Widget build(BuildContext context) => MultiProvider(
     providers: [
-      ChangeNotifierProvider(create: (_) => SettingsData()..load()),
+      ChangeNotifierProvider.value(value: settings),
       if (!kIsWeb)
         ChangeNotifierProvider(
           lazy: false,
