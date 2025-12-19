@@ -1,6 +1,16 @@
 targets:
   $default:
     builders:
+      drift_dev:
+        options:
+          # https://drift.simonbinder.eu/generation_options/
+          data_class_to_companions: false
+          fatal_warnings: true
+          named_parameters: true
+          skip_verification_code: true
+          store_date_time_values_as_text: true
+        generate_for:
+          - lib/data/**
       envied_generator|envied:
         enabled: true
         generate_for:

@@ -1,263 +1,162 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
-import 'package:provider/provider.dart' show ReadContext;
+import 'package:provider/provider.dart' show Consumer, SelectContext;
 import 'package:relative_time/relative_time.dart';
 
+import '../data/preferences.dart';
 import '../data/versions.dart';
-import '../data_handlers/data_manager.dart';
+import '../services.dart';
 
-class DataSyncPage extends StatefulWidget {
+class DataSyncPage extends StatelessWidget {
   const DataSyncPage({super.key});
 
   @override
-  State<DataSyncPage> createState() => _DataSyncPageState();
-}
-
-class _DataSyncPageState extends State<DataSyncPage> {
-  bool _updating = false;
-  bool? _localDataExists;
-  Versions? _serverVersions;
-  DateTime? _lastUpdate;
-
-  @override
-  void initState() {
-    super.initState();
-    _serverVersions = DataManager.instance.versions.cachedServerData;
-    _lastUpdate = DataManager.instance.lastUpdateCheck;
-    _checkForUpdates(initial: true);
-  }
-
-  Future<void> _checkForUpdates({bool initial = false}) async {
-    if (_updating) {
-      return;
-    }
-    final localDataExists = await DataManager.instance.versions.localDataExists;
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _localDataExists = localDataExists;
-      _serverVersions = null;
-      _updating = true;
-    });
-    final hasConnection = Future.wait([
-      context.read<InternetConnectionChecker>().hasConnection,
-      if (!initial) Future.delayed(const Duration(seconds: 2)),
-    ]).then((v) => v.first as bool);
-    if (!await hasConnection) {
-      if (mounted) {
-        setState(() => _updating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nincs internetkapcsolat')),
-        );
-      }
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    final v = await DataManager.instance.checkForUpdates(stopOnError: true);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _updating = false;
-      _localDataExists = true;
-      _serverVersions = v;
-      _lastUpdate = DataManager.instance.lastUpdateCheck;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(
-        _localDataExists == null
-            ? 'Betöltés...'
-            : (_updating ? 'Frissítések keresése...' : 'Adatok kezelése'),
-      ),
-      bottom: _localDataExists == null || _updating
-          ? const PreferredSize(
-              preferredSize: Size.fromHeight(4),
-              child: LinearProgressIndicator(),
-            )
-          : null,
-    ),
-    body: RefreshIndicator(
-      onRefresh: _checkForUpdates,
-      triggerMode: RefreshIndicatorTriggerMode.anywhere,
-      child: ListView(
-        children: [
-          _DataSyncListItem(
-            title: 'Imák',
-            server: _serverVersions,
-            getVersion: (v) => v.data,
-            updater: null,
-            onUpdated: () => setState(() {}),
-          ),
-          _DataSyncListItem(
-            title: 'Képek',
-            server: _serverVersions,
-            getVersion: (v) => v.images,
-            updater: DataManager.instance.updateImages,
-            onUpdated: () => setState(() {}),
-          ),
-          _DataSyncListItem(
-            title: 'Hangok',
-            server: _serverVersions,
-            getVersion: (v) => v.voices,
-            updater: DataManager.instance.updateVoices,
-            onUpdated: () => setState(() {}),
-          ),
-          if (_serverVersions != null && _lastUpdate != null)
-            ListTile(
-              title: const Text('Verziók lekérdezve'),
-              subtitle: Text(
-                RelativeTime(
-                  context,
-                  timeUnits: [TimeUnit.minute, TimeUnit.hour, TimeUnit.day],
-                ).format(_lastUpdate!),
+    appBar: AppBar(title: const Text('Adatok kezelése')),
+    body: Consumer<SyncService>(
+      builder: (context, srv, _) => RefreshIndicator(
+        onRefresh: srv.checkForUpdates,
+        triggerMode: RefreshIndicatorTriggerMode.anywhere,
+        child: ListView(
+          children: [
+            _DataSyncListItem(
+              title: 'Imák',
+              srv: srv,
+              getVersion: (v) => v?.data,
+              downloadAll: srv.downloadData,
+              updateExisting: srv.downloadData,
+              isSyncing: srv.status == SyncStatus.dataDownload,
+            ),
+            _DataSyncListItem(
+              title: 'Képek',
+              srv: srv,
+              getVersion: (v) => v?.images,
+              downloadAll: () => srv.downloadImages(stopOnError: true),
+              updateExisting: () => srv.updateImages(stopOnError: true),
+              isSyncing: srv.status == SyncStatus.imageDownload,
+            ),
+            _DataSyncListItem(
+              title: 'Hangok',
+              srv: srv,
+              getVersion: (v) => v?.voices,
+              downloadAll: () => srv.downloadVoices(stopOnError: true),
+              updateExisting: () => srv.updateImages(stopOnError: true),
+              isSyncing: srv.status == SyncStatus.voiceDownload,
+            ),
+            if (srv.latestVersions != null)
+              ListTile(
+                title: const Text('Legutóbbi szinkronizálás'),
+                subtitle: Text(
+                  RelativeTime(
+                    context,
+                    timeUnits: [TimeUnit.minute, TimeUnit.hour, TimeUnit.day],
+                  ).format(srv.latestVersions!.timestamp.toLocal()),
+                ),
+                onTap: srv.checkForUpdates,
               ),
-              onTap: _checkForUpdates,
-            ),
-          if (kDebugMode)
-            ListTile(
-              title: const Text('Adatok törlése'),
-              enabled: !_updating && _localDataExists == true,
-              onTap: _updating || _localDataExists != true
-                  ? null
-                  : () async {
-                      setState(() {
-                        _serverVersions = null;
-                        _localDataExists = false;
-                      });
-                      final dm = DataManager.instance;
-                      await dm.versions.deleteLocalData();
-                      await dm.prayerGroups.deleteLocalData();
-                      await dm.images.deleteLocalData();
-                      await dm.voices.deleteLocalData();
-
-                      // trigger reloading images
-                      imageCache.clear();
-                      imageCache.clearLiveImages();
-
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                      }
-                    },
-            ),
-        ],
+            if (kDebugMode)
+              ListTile(
+                title: const Text('Adatok törlése'),
+                enabled:
+                    srv.status == SyncStatus.idle && srv.latestVersions != null,
+                onTap:
+                    srv.status != SyncStatus.idle || srv.latestVersions == null
+                    ? null
+                    : () async {
+                        await srv.deleteAllData();
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                        }
+                      },
+              ),
+          ],
+        ),
       ),
     ),
   );
 }
 
-class _DataSyncListItem extends StatefulWidget {
+class _DataSyncListItem extends StatelessWidget {
   const _DataSyncListItem({
     required this.title,
+    required this.srv,
     required this.getVersion,
-    required this.updater,
-    required this.server,
-    required this.onUpdated,
+    required this.downloadAll,
+    required this.updateExisting,
+    required this.isSyncing,
   });
 
-  final Versions? server;
   final String title;
-  final String Function(Versions v) getVersion;
-  final Future<bool> Function(Versions v)? updater;
-  final VoidCallback onUpdated;
-
-  @override
-  State<_DataSyncListItem> createState() => _DataSyncListItemState();
-}
-
-class _DataSyncListItemState extends State<_DataSyncListItem> {
-  bool _loading = false;
+  final SyncService srv;
+  final String? Function(Versions? v) getVersion;
+  final Future<bool> Function() downloadAll;
+  final Future<bool> Function() updateExisting;
+  final bool isSyncing;
 
   @override
   Widget build(BuildContext context) {
-    final updater = widget.updater;
-    final server = widget.server;
-    final local = DataManager.instance.versions.cachedLocalData;
+    final serverVersion = getVersion(srv.latestVersions);
+    final localVersion = getVersion(
+      context.select<Preferences, Versions?>((p) => p.versions),
+    );
 
-    Widget? subtitle;
+    final Widget? subtitle;
     VoidCallback? onTap;
-
-    if (server == null) {
-      // failed to get server versions
-      if (local != null) {
-        // downloaded previously
-        final localVersion = widget.getVersion(local);
-        if (localVersion.isNotEmpty) {
-          subtitle = Text(localVersion);
+    if (localVersion == null || serverVersion == null) {
+      subtitle = null;
+    } else if (isSyncing && localVersion.isEmpty) {
+      subtitle = const Text('Letöltés folyamatban...');
+    } else if (isSyncing && localVersion.isNotEmpty) {
+      subtitle = const Text('Frissítés folyamatban...');
+    } else if (serverVersion.isNotEmpty &&
+        localVersion.isEmpty &&
+        serverVersion != localVersion) {
+      subtitle = const Text('Érintsd meg a letöltéshez');
+      onTap = () async {
+        final success = await downloadAll.call();
+        if (!context.mounted) {
+          return;
         }
-      }
-      // not downloaded previously
-      subtitle ??= const Text('Nincsenek letöltve');
-    } else if (local != null) {
-      final serverVersion = widget.getVersion(server);
-      final localVersion = widget.getVersion(local);
-      if (localVersion.isEmpty && updater != null) {
-        if (_loading) {
-          subtitle = const Text('Letöltés folyamatban...');
+        if (success) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$title letöltve')));
         } else {
-          subtitle = const Text('Érintsd meg a letöltéshez');
-          onTap = () async {
-            setState(() => _loading = true);
-            final success = await updater.call(server);
-            if (!context.mounted) {
-              return;
-            }
-            setState(() => _loading = false);
-            if (success) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${widget.title} letöltve')),
-              );
-              widget.onUpdated();
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('A letöltés nem sikerült')),
-              );
-            }
-          };
-        }
-      } else if (localVersion != serverVersion && updater != null) {
-        if (_loading) {
-          subtitle = const Text('Frissítés folyamatban...');
-        } else {
-          subtitle = Text(
-            'Frissítés elérhető: $localVersion -> $serverVersion',
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('A letöltés nem sikerült')),
           );
-          onTap = () async {
-            setState(() => _loading = true);
-            final success = await updater(server);
-            if (!context.mounted) {
-              return;
-            }
-            setState(() => _loading = false);
-            if (success) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${widget.title} frissítve')),
-              );
-              widget.onUpdated();
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('A frissítés nem sikerült')),
-              );
-            }
-          };
         }
-      }
-      if (subtitle == null && localVersion.isNotEmpty) {
-        subtitle = Text(localVersion);
-      }
+      };
+    } else if (serverVersion.isNotEmpty &&
+        localVersion.isNotEmpty &&
+        serverVersion != localVersion) {
+      subtitle = Text('Frissítés elérhető: $localVersion -> $serverVersion');
+      onTap = () async {
+        final success = await updateExisting.call();
+        if (!context.mounted) {
+          return;
+        }
+        if (success) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$title frissítve')));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('A frissítés nem sikerült')),
+          );
+        }
+      };
+    } else if (localVersion.isNotEmpty) {
+      subtitle = Text(localVersion);
+    } else {
+      subtitle = const Text('Nincs letöltve');
     }
+
     return ListTile(
-      title: Text(widget.title),
+      title: Text(title),
       subtitle: subtitle,
-      enabled: !_loading && onTap != null,
-      trailing: _loading
+      enabled: !isSyncing && onTap != null,
+      trailing: isSyncing
           ? const SizedBox(
               width: 24,
               height: 24,

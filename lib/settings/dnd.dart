@@ -2,11 +2,12 @@ import 'package:do_not_disturb/do_not_disturb.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart'
+    show ChangeNotifierProvider, SelectContext, ReadContext;
 import 'package:universal_io/universal_io.dart' show Platform;
 
-class DndProvider extends ChangeNotifier with WidgetsBindingObserver {
-  DndProvider() {
+class Dnd extends ChangeNotifier with WidgetsBindingObserver {
+  Dnd() {
     WidgetsBinding.instance.addObserver(this);
     _checkAccess();
   }
@@ -80,7 +81,7 @@ class DndSwitchListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasAccess = context.select<DndProvider, bool>((dnd) => dnd.hasAccess);
+    final hasAccess = context.select<Dnd, bool>((dnd) => dnd.hasAccess);
 
     if (hasAccess) {
       return SwitchListTile(
@@ -109,10 +110,12 @@ class DndSwitchListTile extends StatelessWidget {
         ),
       ),
       isThreeLine: true,
-      onTap: () => context
-          .read<DndProvider>()
-          ._dndPlugin
-          .openNotificationPolicyAccessSettings(),
+      onTap: () =>
+          context.read<Dnd>()._dndPlugin.openNotificationPolicyAccessSettings(),
     );
   }
+}
+
+class DndProvider extends ChangeNotifierProvider<Dnd> {
+  DndProvider({super.key}) : super(create: (_) => Dnd());
 }

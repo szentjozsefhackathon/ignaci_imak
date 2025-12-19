@@ -3,23 +3,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' show MultiProvider, WatchContext;
 import 'package:relative_time/relative_time.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sentry_logging/sentry_logging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdb;
 import 'package:timezone/timezone.dart'
     if (dart.library.js_interop) 'package:timezone/browser.dart'
     as tz;
 import 'package:universal_io/universal_io.dart' show Platform;
 
-import 'data/settings_data.dart';
+import 'data/database.dart' show DatabaseProvider;
+import 'data/preferences.dart';
 import 'env.dart';
-import 'notifications.dart';
+import 'notifications.dart' show NotificationsProvider;
 import 'routes.dart';
+import 'services.dart';
 import 'settings/dnd.dart' show DndProvider;
 import 'settings/focus_status.dart';
 import 'theme.dart';
@@ -117,47 +119,38 @@ void main() async {
     };
   });
 
-  final settings = SettingsData();
-  await settings.load();
+  final prefs = await SharedPreferencesWithCache.create(
+    cacheOptions: const SharedPreferencesWithCacheOptions(),
+  );
 
-  runApp(SentryWidget(child: IgnacioPrayersApp(settings: settings)));
+  runApp(SentryWidget(child: IgnacioPrayersApp(prefs: prefs)));
 }
 
 class IgnacioPrayersApp extends StatelessWidget {
-  const IgnacioPrayersApp({super.key, required this.settings});
+  const IgnacioPrayersApp({super.key, required this.prefs});
 
-  final SettingsData settings;
+  final SharedPreferencesWithCache prefs;
 
   @override
   Widget build(BuildContext context) => MultiProvider(
     providers: [
-      ChangeNotifierProvider.value(value: settings),
+      PreferencesProvider(prefs),
       if (!kIsWeb) ...[
-        ChangeNotifierProvider(
-          lazy: false,
-          create: (_) => Notifications()..initialize(),
-        ),
-        Provider(
-          create: (_) => InternetConnectionChecker.createInstance(
-            addresses: [
-              AddressCheckOption(uri: Env.serverUri),
-              AddressCheckOption(uri: Uri.parse('https://google.com')),
-            ],
-          ),
-          dispose: (_, checker) => checker.dispose(),
-        ),
+        NotificationsProvider(),
+        DatabaseProvider(),
+        SyncServiceProvider(),
       ],
-      ChangeNotifierProvider(create: (_) => DndProvider()),
+      DndProvider(),
     ],
     builder: (context, widget) {
-      final settings = context.watch<SettingsData>();
+      final prefs = context.watch<Preferences>();
       return MaterialApp(
         title: 'Ignáci imák',
         theme: AppTheme.lightTheme,
-        darkTheme: settings.themeMode == AppThemeMode.oled
+        darkTheme: prefs.themeMode == AppThemeMode.oled
             ? AppTheme.oledTheme
             : AppTheme.darkTheme, // Default dark theme
-        themeMode: switch (settings.themeMode) {
+        themeMode: switch (prefs.themeMode) {
           AppThemeMode.light => ThemeMode.light,
           AppThemeMode.dark || AppThemeMode.oled => ThemeMode.dark,
           _ => ThemeMode.system,

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
-import '../data/prayer.dart';
-import '../data/prayer_group.dart';
-import '../data_handlers/data_manager.dart';
+import '../data/database.dart';
 import '../routes.dart';
 
-class PrayerSearchDelegate extends SearchDelegate<PrayerSearchResult> {
+class PrayerSearchDelegate extends SearchDelegate<PrayerWithGroup> {
   PrayerSearchDelegate({this.group});
 
   final PrayerGroup? group;
@@ -36,7 +34,7 @@ class PrayerSearchDelegate extends SearchDelegate<PrayerSearchResult> {
       );
     }
     return FutureBuilder(
-      future: _filter(searchTerm, 50, 15),
+      future: _filter(context, searchTerm, 50, 15),
       builder: (context, snapshot) {
         final matches = snapshot.data;
         if (matches == null) {
@@ -62,9 +60,10 @@ class PrayerSearchDelegate extends SearchDelegate<PrayerSearchResult> {
     child: Center(child: Text(text, textAlign: TextAlign.center)),
   );
 
-  final _matchesCache = <String, List<PrayerSearchResult>>{};
+  final _matchesCache = <String, List<PrayerWithGroup>>{};
 
-  Future<List<PrayerSearchResult>> _filter(
+  Future<List<PrayerWithGroup>> _filter(
+    BuildContext context,
     String query,
     int cutoff,
     int limit,
@@ -73,17 +72,16 @@ class PrayerSearchDelegate extends SearchDelegate<PrayerSearchResult> {
     if (_matchesCache.containsKey(cacheKey)) {
       return _matchesCache[cacheKey]!;
     }
-    final groups = await DataManager.instance.prayerGroups.data;
-    final result = <PrayerSearchResult>[];
+    final db = context.read<Database>();
+    // TODO: move filtering logic to dao?
+    final result = <PrayerWithGroup>[];
     if (group == null) {
-      for (final group in groups) {
-        for (final prayer in group.prayers) {
-          result.add(PrayerSearchResult._(group, prayer));
-        }
+      for (final entry in await db.prayersDao.getPrayersWithGroups()) {
+        result.add(entry);
       }
     } else {
-      for (final prayer in group!.prayers) {
-        result.add(PrayerSearchResult._(group!, prayer));
+      for (final prayer in await db.prayersDao.getPrayersOf(group!)) {
+        result.add((group: group!, prayer: prayer));
       }
     }
     if (query.isEmpty) {
@@ -114,15 +112,6 @@ class PrayerSearchDelegate extends SearchDelegate<PrayerSearchResult> {
     _matchesCache[cacheKey] = matches;
     return matches;
   }
-}
-
-class PrayerSearchResult {
-  PrayerSearchResult._(this.group, this.prayer);
-
-  final PrayerGroup group;
-  final Prayer prayer;
-
-  String get slug => '${group.slug}/${prayer.slug}';
 }
 
 class PrayerSearchIconButton extends StatelessWidget {

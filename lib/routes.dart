@@ -1,11 +1,8 @@
-import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 
-import 'data/prayer.dart';
-import 'data/prayer_group.dart';
-import 'data_handlers/data_manager.dart';
+import 'data/database.dart';
 import 'menu/prayer_groups_page.dart';
 import 'menu/prayers_page.dart';
 import 'prayer/prayer_description_page.dart';
@@ -67,28 +64,29 @@ class Routes {
           if (group != null) {
             return PrayersPage(group: group);
           }
-          final slug = uri.pathSegments.last;
-          return FutureBuilder<PrayerGroup?>(
-            future: DataManager.instance.prayerGroups.data.then(
-              (g) => g.items.singleWhereOrNull((i) => i.slug == slug),
+          return Consumer<Database>(
+            builder: (context, db, _) => FutureBuilder(
+              future: db.prayersDao.findPrayerGroupBySlug(
+                uri.pathSegments.last,
+              ),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Scaffold(
+                    body: Center(child: Text(snapshot.error.toString())),
+                  );
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final data = snapshot.data;
+                if (data == null) {
+                  return const _NotFoundPage();
+                }
+                return PrayersPage(group: data);
+              },
             ),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Scaffold(
-                  body: Center(child: Text(snapshot.error.toString())),
-                );
-              }
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                );
-              }
-              final data = snapshot.data;
-              if (data == null) {
-                return const _NotFoundPage();
-              }
-              return PrayersPage(group: data);
-            },
           );
         },
       );
@@ -105,33 +103,30 @@ class Routes {
             );
           }
           final [groupSlug, prayerSlug] = uri.pathSegments;
-          return FutureBuilder<PrayerGroup?>(
-            future: DataManager.instance.prayerGroups.data.then(
-              (g) => g.items.singleWhereOrNull((i) => i.slug == groupSlug),
+          return Consumer<Database>(
+            builder: (context, db, _) => FutureBuilder(
+              future: db.prayersDao.findPrayerBySlugs(groupSlug, prayerSlug),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Scaffold(
+                    body: Center(child: Text(snapshot.error.toString())),
+                  );
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final data = snapshot.data;
+                if (data == null) {
+                  return const _NotFoundPage();
+                }
+                return PrayerDescriptionPage(
+                  group: data.group,
+                  prayer: data.prayer,
+                );
+              },
             ),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Scaffold(
-                  body: Center(child: Text(snapshot.error.toString())),
-                );
-              }
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                );
-              }
-              final data = snapshot.data;
-              if (data == null) {
-                return const _NotFoundPage();
-              }
-              final prayer = data.prayers.singleWhereOrNull(
-                (p) => p.slug == prayerSlug,
-              );
-              if (prayer == null) {
-                return const _NotFoundPage();
-              }
-              return PrayerDescriptionPage(group: data, prayer: prayer);
-            },
           );
         },
       );

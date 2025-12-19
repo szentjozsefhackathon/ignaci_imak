@@ -1,11 +1,12 @@
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart'
+    show WatchContext, ReadContext, Selector;
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:universal_io/universal_io.dart' show Platform;
 
-import '../data/settings_data.dart';
+import '../data/preferences.dart';
 import '../notifications.dart';
 import '../routes.dart';
 import '../theme.dart' show AppThemeMode;
@@ -16,7 +17,7 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsData>();
+    final prefs = context.watch<Preferences>();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Beállítások')),
@@ -24,15 +25,12 @@ class SettingsPage extends StatelessWidget {
         children: [
           if (!kIsWeb) ...[
             if (Platform.isAndroid)
-              DndSwitchListTile(
-                value: settings.dnd,
-                onChanged: (v) => settings.dnd = v,
-              ),
-            if (Platform.isAndroid && settings.dnd)
+              DndSwitchListTile(value: prefs.dnd, onChanged: prefs.setDnd),
+            if (Platform.isAndroid && prefs.dnd)
               ListTile(
                 title: const Text('Ne zavarjanak további beállításai'),
                 trailing: const Icon(Icons.open_in_new_rounded),
-                onTap: () => context.read<DndProvider>().openSettings(),
+                onTap: () => context.read<Dnd>().openSettings(),
               ),
           ],
           const Padding(
@@ -40,10 +38,10 @@ class SettingsPage extends StatelessWidget {
             child: Text('Téma'),
           ),
           RadioGroup(
-            groupValue: settings.themeMode,
+            groupValue: prefs.themeMode,
             onChanged: (v) {
               if (v != null) {
-                settings.themeMode = v;
+                prefs.setThemeMode(v);
               }
             },
             child: Column(
@@ -63,10 +61,10 @@ class SettingsPage extends StatelessWidget {
           ),
           if (!kIsWeb) ...[
             NotificationsSwitchListTile(
-              value: settings.reminderNotifications,
-              onChanged: (v) => settings.reminderNotifications = v,
+              value: prefs.reminderNotifications,
+              onChanged: prefs.setReminderNotifications,
             ),
-            if (settings.reminderNotifications) ...[
+            if (prefs.reminderNotifications) ...[
               if (Platform.isAndroid || Platform.isIOS)
                 ListTile(
                   title: const Text('Értesítések további beállításai'),
