@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart' show Consumer, SelectContext;
+import 'package:provider/provider.dart' show Consumer, SelectContext, Selector;
 import 'package:relative_time/relative_time.dart';
 
 import '../data/preferences.dart';
@@ -44,30 +44,51 @@ class DataSyncPage extends StatelessWidget {
               isSyncing: srv.status == SyncStatus.voiceDownload,
             ),
             if (srv.latestVersions != null)
-              ListTile(
-                title: const Text('Legutóbbi szinkronizálás'),
-                subtitle: Text(
-                  RelativeTime(
-                    context,
-                    timeUnits: [TimeUnit.minute, TimeUnit.hour, TimeUnit.day],
-                  ).format(srv.latestVersions!.timestamp.toLocal()),
+              Selector<SyncService, SyncStatus>(
+                selector: (context, srv) => srv.status,
+                builder: (context, status, _) => ListTile(
+                  title: const Text('Legutóbbi szinkronizálás'),
+                  subtitle: status == SyncStatus.versionCheck
+                      ? null
+                      : Text(
+                          RelativeTime(
+                            context,
+                            timeUnits: [
+                              TimeUnit.minute,
+                              TimeUnit.hour,
+                              TimeUnit.day,
+                            ],
+                          ).format(srv.latestVersions!.timestamp.toLocal()),
+                        ),
+                  trailing: status == SyncStatus.versionCheck
+                      ? const _DataSyncListItemProgressIndicator()
+                      : const Icon(Icons.sync_rounded),
+                  onTap: status == SyncStatus.versionCheck
+                      ? null
+                      : srv.checkForUpdates,
                 ),
-                onTap: srv.checkForUpdates,
               ),
             if (kDebugMode)
-              ListTile(
-                title: const Text('Adatok törlése'),
-                enabled:
-                    srv.status == SyncStatus.idle && srv.latestVersions != null,
-                onTap:
-                    srv.status != SyncStatus.idle || srv.latestVersions == null
-                    ? null
-                    : () async {
-                        await srv.deleteAllData();
-                        if (context.mounted) {
-                          Navigator.pop(context);
+              Selector<SyncService, bool>(
+                selector: (context, srv) =>
+                    (srv.status == SyncStatus.idle ||
+                        srv.status == SyncStatus.updateAvailable) &&
+                    srv.latestVersions != null,
+                builder: (context, canDelete, _) => ListTile(
+                  title: const Text('Adatok törlése'),
+                  enabled: canDelete,
+                  trailing: canDelete
+                      ? null
+                      : const Icon(Icons.delete_outline_rounded),
+                  onTap: canDelete
+                      ? () async {
+                          await srv.deleteAllData();
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                          }
                         }
-                      },
+                      : null,
+                ),
               ),
           ],
         ),
@@ -106,11 +127,7 @@ class _DataSyncListItem extends StatelessWidget {
     final Text? subtitle;
     VoidCallback? onTap;
     if (isSyncing) {
-      trailing = const SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(strokeWidth: 3),
-      );
+      trailing = const _DataSyncListItemProgressIndicator();
       subtitle = hasLocal
           ? const Text('Frissítés folyamatban...')
           : const Text('Letöltés folyamatban...');
@@ -169,4 +186,15 @@ class _DataSyncListItem extends StatelessWidget {
       onTap: onTap,
     );
   }
+}
+
+class _DataSyncListItemProgressIndicator extends StatelessWidget {
+  const _DataSyncListItemProgressIndicator();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    width: 24,
+    height: 24,
+    child: CircularProgressIndicator(strokeWidth: 3),
+  );
 }

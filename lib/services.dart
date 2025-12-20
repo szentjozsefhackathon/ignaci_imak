@@ -126,9 +126,14 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<bool> checkForUpdates() async {
-    if (_status != SyncStatus.idle) {
-      _log.warning('Cannot check for updates in $_status');
-      return false;
+    switch (_status) {
+      case SyncStatus.idle:
+      case SyncStatus.updateAvailable:
+        // continue
+        break;
+      default:
+        _log.warning('Cannot check for updates in $_status');
+        return false;
     }
     _setStatus(SyncStatus.versionCheck);
     SyncStatus finalStatus = SyncStatus.idle;
