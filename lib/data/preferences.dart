@@ -5,9 +5,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme.dart' show AppThemeMode;
 import 'versions.dart';
 
+export 'package:shared_preferences/shared_preferences.dart'
+    show SharedPreferencesWithCache, SharedPreferencesWithCacheOptions;
+
 class Preferences extends ChangeNotifier {
   Preferences(this._p);
 
+  static const _kSentryEnabled = 'sentryEnabled';
   static const _kVersions = 'versions';
   static const _kLastSync = 'lastSync';
   static const _kThemeMode = 'themeMode';
@@ -19,6 +23,13 @@ class Preferences extends ChangeNotifier {
   static const _kVoiceChoice = 'voiceChoice';
 
   final SharedPreferencesWithCache _p;
+
+  bool get sentryEnabled => _p.getBool(_kSentryEnabled) ?? true;
+
+  Future<void> setSentryEnabled(bool enabled) async {
+    await _p.setBool(_kSentryEnabled, enabled);
+    notifyListeners();
+  }
 
   Versions? get versions {
     final list = _p.getStringList(_kVersions);
@@ -112,6 +123,6 @@ class Preferences extends ChangeNotifier {
 }
 
 class PreferencesProvider extends ChangeNotifierProvider<Preferences> {
-  PreferencesProvider(SharedPreferencesWithCache prefs, {super.key})
-    : super.value(value: Preferences(prefs));
+  PreferencesProvider(Preferences prefs, {super.key})
+    : super.value(value: prefs);
 }

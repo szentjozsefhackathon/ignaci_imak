@@ -3,12 +3,13 @@ import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'
     show WatchContext, ReadContext, Selector;
-import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart' show SentryFeedbackWidget;
 import 'package:universal_io/universal_io.dart' show Platform;
 
 import '../data/preferences.dart';
 import '../notifications.dart';
 import '../routes.dart';
+import '../sentry.dart';
 import '../theme.dart' show AppThemeMode;
 import 'dnd.dart';
 
@@ -90,6 +91,41 @@ class SettingsPage extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, Routes.dataSync),
             ),
           ],
+          if (hasSentryDsn)
+            SwitchListTile(
+              title: const Text('Hibák automatikus elküldése a fejlesztőknek'),
+              value: prefs.sentryEnabled,
+              onChanged: (v) async {
+                if (v) {
+                  await initSentry();
+                  await prefs.setSentryEnabled(true);
+                } else {
+                  await showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Megerősítés'),
+                      content: const Text(
+                        'Biztosan ki szeretnéd kapcsolni a hibajelzések automatikus küldését?\n\nEzzel lassabban fogjuk tudni kijavítani az alkalmazás esetleges hibáit, vagy amiatt mert kevesebb információ fog rendelkezésünkre állni, vagy azért mert egyáltalán nem is fogunk tudni róluk.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Meggondoltam magam'),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await prefs.setSentryEnabled(false);
+                            await Sentry.close();
+                          },
+                          child: const Text('Igen, biztos'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              },
+            ),
           if (Sentry.isEnabled)
             ListTile(
               title: const Text('Visszajelzés'),

@@ -2,7 +2,7 @@ import 'dart:async' show TimeoutException;
 
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart' show SentryFlutter;
 import 'package:universal_io/universal_io.dart';
 
 import '../data/database.dart';
