@@ -4,7 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show ChangeNotifier, kDebugMode;
 import 'package:flutter/widgets.dart' show imageCache;
 import 'package:logging/logging.dart';
-import 'package:provider/provider.dart' show ListenableProxyProvider2;
+import 'package:provider/provider.dart' show ChangeNotifierProxyProvider2;
 import 'package:sentry_dio/sentry_dio.dart';
 import 'package:sentry_flutter/sentry_flutter.dart' show SentryStatusCode;
 import 'package:universal_io/universal_io.dart' show HttpHeaders, HttpStatus;
@@ -24,6 +24,8 @@ enum SyncStatus {
   delete,
 }
 
+typedef MediaWithEtag = ({String name, String? etag});
+
 class SyncService extends ChangeNotifier {
   SyncService() {
     _client = Dio(
@@ -32,6 +34,8 @@ class SyncService extends ChangeNotifier {
         connectTimeout: const Duration(seconds: 3),
         receiveTimeout: const Duration(seconds: 5),
         followRedirects: false,
+        validateStatus: (status) =>
+            status != null && !_kFailedStatusCodeRange.isInRange(status),
       ),
     );
     if (kDebugMode) {
@@ -39,14 +43,15 @@ class SyncService extends ChangeNotifier {
     }
     _client.addSentry(
       captureFailedRequests: true,
-      failedRequestStatusCodes: [
-        SentryStatusCode.range(400, 404),
-        const SentryStatusCode.defaultRange(),
-      ],
+      failedRequestStatusCodes: [_kFailedStatusCodeRange],
     );
   }
 
   static final _log = Logger('SyncService');
+  static final _kFailedStatusCodeRange = SentryStatusCode.range(
+    HttpStatus.badRequest,
+    HttpStatus.networkConnectTimeoutError,
+  );
   late final Dio _client;
   late Preferences _prefs;
   late Database _db;
@@ -127,11 +132,16 @@ class SyncService extends ChangeNotifier {
     }
   }
 
-  Future<Response<T>?> _get<T>(String path, {String? etag}) => _client.get<T>(
+  Future<Response<T>?> _get<T>(
+    String path, {
+    String? etag,
+    ResponseType? responseType,
+  }) => _client.get<T>(
     path,
-    options: etag == null
-        ? null
-        : Options(headers: {HttpHeaders.ifNoneMatchHeader: etag}),
+    options: Options(
+      headers: {if (etag != null) HttpHeaders.ifNoneMatchHeader: etag},
+      responseType: responseType,
+    ),
   );
 
   SyncStatus get _isStatusIdleOrUpdate {
@@ -304,19 +314,18 @@ class SyncService extends ChangeNotifier {
     return success;
   }
 
-  Future<int?> _downloadImage({
-    required String name,
-    required String? etag,
-  }) async {
-    final response = await _get<Uint8List>(
-      Env.serverImagePath(name),
-      etag: etag,
+  Future<int?> _downloadImage(MediaWithEtag image) async {
+    final response = await _get<List<int>>(
+      Env.serverImagePath(image.name),
+      etag: image.etag,
+      responseType: ResponseType.bytes,
     );
-    if (response?.data case final Uint8List data) {
+    if (response?.data case final List<int> data
+        when response?.statusCode == HttpStatus.ok) {
       await _db.managers.images.create(
         (create) => create(
-          name: name,
-          data: data,
+          name: image.name,
+          data: Uint8List.fromList(data),
           etag: Value.absentIfNull(
             response?.headers.value(HttpHeaders.etagHeader),
           ),
@@ -328,7 +337,7 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<bool> downloadImages({
-    Map<String, String?>? imagesWithEtag,
+    Iterable<MediaWithEtag>? images,
     required bool stopOnError,
   }) async {
     switch (_status) {
@@ -349,31 +358,31 @@ class SyncService extends ChangeNotifier {
     bool success = true;
     SyncStatus finalStatus = SyncStatus.idle;
     try {
-      if (imagesWithEtag == null) {
+      if (images == null) {
         final etagMap = Map.fromEntries(
           await _db.managers.images.map((i) => MapEntry(i.name, i.etag)).get(),
         );
-        imagesWithEtag = Map.fromIterable([
+        images = [
           ...await _db.managers.prayerGroups.map((g) => g.image).get(),
           ...await _db.managers.prayers.map((p) => p.image).get(),
-        ], value: (name) => etagMap[name]);
+        ].map((name) => (name: name, etag: etagMap[name]));
       }
-      _log.fine('Downloading ${imagesWithEtag.length} image(s)...');
+      _log.fine('Downloading ${images.length} image(s)...');
+      bool updateVersion = false;
       success = await _db.transaction(() async {
         bool success = true;
-        for (final entry in imagesWithEtag!.entries) {
-          final status = await _downloadImage(
-            name: entry.key,
-            etag: entry.value,
-          );
-          if (status != HttpStatus.ok && status != HttpStatus.notModified) {
+        for (final image in images!) {
+          final status = await _downloadImage(image);
+          if (status == HttpStatus.ok) {
+            updateVersion = true;
+          } else if (status != HttpStatus.notModified) {
             success = false;
             if (stopOnError) {
               break;
             }
           }
         }
-        if (success) {
+        if (updateVersion) {
           await _prefs.setVersions(
             _prefs.versions?.copyWith(images: v.data) ??
                 Versions.downloaded(v, images: true),
@@ -392,28 +401,36 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<bool> updateImages({required bool stopOnError}) async {
-    final downloaded = Map.fromEntries(
-      await _db.managers.images.map((i) => MapEntry(i.name, i.etag)).get(),
-    );
+    switch (_status) {
+      case SyncStatus.idle:
+      case SyncStatus.updateAvailable:
+        // continue
+        break;
+      default:
+        _log.warning('Cannot update images in $_status');
+        return false;
+    }
+    final downloaded = await _db.managers.images
+        .map((i) => (name: i.name, etag: i.etag))
+        .get();
     if (downloaded.isEmpty) {
       return true;
     }
-    return downloadImages(imagesWithEtag: downloaded, stopOnError: stopOnError);
+    return downloadImages(images: downloaded, stopOnError: stopOnError);
   }
 
-  Future<int?> _downloadVoice({
-    required String name,
-    required String? etag,
-  }) async {
-    final response = await _get<Uint8List>(
-      Env.serverVoicePath(name),
-      etag: etag,
+  Future<int?> _downloadVoice(MediaWithEtag voice) async {
+    final response = await _get<List<int>>(
+      Env.serverVoicePath(voice.name),
+      etag: voice.etag,
+      responseType: ResponseType.bytes,
     );
-    if (response?.data case final Uint8List data) {
+    if (response?.data case final List<int> data
+        when response?.statusCode == HttpStatus.ok) {
       await _db.managers.voices.create(
         (create) => create(
-          name: name,
-          data: data,
+          name: voice.name,
+          data: Uint8List.fromList(data),
           etag: Value.absentIfNull(
             response?.headers.value(HttpHeaders.etagHeader),
           ),
@@ -425,7 +442,7 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<bool> downloadVoices({
-    Map<String, String?>? voicesWithEtag,
+    Iterable<MediaWithEtag>? voices,
     required bool stopOnError,
   }) async {
     switch (_status) {
@@ -446,31 +463,31 @@ class SyncService extends ChangeNotifier {
     bool success = true;
     SyncStatus finalStatus = SyncStatus.idle;
     try {
-      if (voicesWithEtag == null) {
+      if (voices == null) {
         final etagMap = Map.fromEntries(
           await _db.managers.voices.map((v) => MapEntry(v.name, v.etag)).get(),
         );
-        voicesWithEtag = Map.fromIterable([
+        voices = [
           for (final step in await _db.managers.prayerSteps.get())
             ...step.voices,
-        ], value: (name) => etagMap[name]);
+        ].map((name) => (name: name, etag: etagMap[name]));
       }
-      _log.fine('Downloading ${voicesWithEtag.length} image(s)...');
+      _log.fine('Downloading ${voices.length} image(s)...');
+      bool updateVersion = false;
       success = await _db.transaction(() async {
         bool success = true;
-        for (final entry in voicesWithEtag!.entries) {
-          final status = await _downloadVoice(
-            name: entry.key,
-            etag: entry.value,
-          );
-          if (status != HttpStatus.ok && status != HttpStatus.notModified) {
+        for (final voice in voices!) {
+          final status = await _downloadVoice(voice);
+          if (status == HttpStatus.ok) {
+            updateVersion = true;
+          } else if (status != HttpStatus.notModified) {
             success = false;
             if (stopOnError) {
               break;
             }
           }
         }
-        if (success) {
+        if (updateVersion) {
           await _prefs.setVersions(
             _prefs.versions?.copyWith(voices: v.data) ??
                 Versions.downloaded(v, voices: true),
@@ -489,23 +506,32 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<bool> updateVoices({required bool stopOnError}) async {
-    final downloaded = Map.fromEntries(
-      await _db.managers.voices.map((v) => MapEntry(v.name, v.etag)).get(),
-    );
+    switch (_status) {
+      case SyncStatus.idle:
+      case SyncStatus.updateAvailable:
+        // continue
+        break;
+      default:
+        _log.warning('Cannot update voices in $_status');
+        return false;
+    }
+    final downloaded = await _db.managers.voices
+        .map((v) => (name: v.name, etag: v.etag))
+        .get();
     if (downloaded.isEmpty) {
       return true;
     }
-    return downloadVoices(voicesWithEtag: downloaded, stopOnError: stopOnError);
+    return downloadVoices(voices: downloaded, stopOnError: stopOnError);
   }
 }
 
 class SyncServiceProvider
-    extends ListenableProxyProvider2<Preferences, Database, SyncService> {
+    extends ChangeNotifierProxyProvider2<Preferences, Database, SyncService> {
   SyncServiceProvider({super.key})
     : super(
-        update: (ctx, prefs, db, srv) => (srv ?? SyncService())
+        create: (context) => SyncService(),
+        update: (context, prefs, db, srv) => (srv ?? SyncService())
           .._prefs = prefs
           .._db = db,
-        dispose: (ctx, srv) => srv.dispose(),
       );
 }
