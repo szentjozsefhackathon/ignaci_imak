@@ -22,6 +22,7 @@ class DataSyncPage extends StatelessWidget {
             _DataSyncListItem(
               title: 'Imák',
               srv: srv,
+              stats: null,
               getVersion: (v) => v?.data,
               downloadAll: srv.downloadData,
               updateExisting: srv.downloadData,
@@ -30,6 +31,7 @@ class DataSyncPage extends StatelessWidget {
             _DataSyncListItem(
               title: 'Képek',
               srv: srv,
+              stats: (all: srv.allImages, downloaded: srv.downloadedImages),
               getVersion: (v) => v?.images,
               downloadAll: () => srv.downloadImages(stopOnError: true),
               updateExisting: () => srv.updateImages(stopOnError: true),
@@ -38,6 +40,7 @@ class DataSyncPage extends StatelessWidget {
             _DataSyncListItem(
               title: 'Hangok',
               srv: srv,
+              stats: (all: srv.allVoices, downloaded: srv.downloadedVoices),
               getVersion: (v) => v?.voices,
               downloadAll: () => srv.downloadVoices(stopOnError: true),
               updateExisting: () => srv.updateImages(stopOnError: true),
@@ -101,6 +104,7 @@ class _DataSyncListItem extends StatelessWidget {
   const _DataSyncListItem({
     required this.title,
     required this.srv,
+    required this.stats,
     required this.getVersion,
     required this.downloadAll,
     required this.updateExisting,
@@ -110,6 +114,7 @@ class _DataSyncListItem extends StatelessWidget {
   final String title;
   final SyncService srv;
   final String? Function(Versions? v) getVersion;
+  final ({int all, int downloaded})? stats;
   final Future<bool> Function() downloadAll;
   final Future<bool> Function() updateExisting;
   final bool isSyncing;
@@ -173,7 +178,9 @@ class _DataSyncListItem extends StatelessWidget {
       };
     } else if (hasLocal) {
       trailing = const Icon(Icons.check_rounded);
-      subtitle = kDebugMode ? Text(localVersion!) : const Text('Letöltve');
+      subtitle = Text(
+        '${(stats?.all == stats?.downloaded ? 'Letöltve' : '${stats!.all}/${stats!.downloaded} letöltve')}${kDebugMode ? ' ($localVersion)' : ''}',
+      );
     } else {
       subtitle = null;
     }

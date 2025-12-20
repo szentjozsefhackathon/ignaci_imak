@@ -69,6 +69,39 @@ class SyncService extends ChangeNotifier {
   Versions? _latestVersions;
   Versions? get latestVersions => _latestVersions;
 
+  int _allImages = 0, _allVoices = 0;
+  int get allImages => _allImages;
+  int get allVoices => _allVoices;
+
+  int _downloadedImages = 0, _downloadedVoices = 0;
+  int get downloadedImages => _downloadedImages;
+  int get downloadedVoices => _downloadedVoices;
+
+  int get downloadableImages => _allImages - _downloadedImages;
+  int get downloadableVoices => _allVoices - _downloadedVoices;
+
+  Future<void> _updateStats() async {
+    _allImages =
+        await _db.managers.prayerGroups.count() +
+        await _db.managers.prayers.count();
+    final voicesLengthField = _db.managers.prayerSteps.computedField(
+      (o) => o.voices.length,
+    );
+    _allVoices = 0;
+    for (final (_, refs) in await _db.managers.prayerSteps.withFields([
+      voicesLengthField,
+    ]).get()) {
+      _allVoices += voicesLengthField.read(refs) ?? 0;
+    }
+
+    _downloadedImages = await _db.managers.images.count();
+    _downloadedVoices = await _db.managers.voices.count();
+    _log.fine(
+      'Stats: $_allImages/$_downloadedImages image(s) and $_allVoices/$_downloadedVoices voice(s) downloaded',
+    );
+    notifyListeners();
+  }
+
   void ignoreUpdate() {
     if (_status == SyncStatus.updateAvailable) {
       _latestVersions = _prefs.versions;
@@ -118,12 +151,12 @@ class SyncService extends ChangeNotifier {
     if (!await checkForUpdates()) {
       return false;
     }
+    bool success = true;
     if (_status == SyncStatus.updateAvailable) {
       if (!await downloadData()) {
         return false;
       }
       if (withMedia) {
-        bool success = true;
         if (!await updateImages(stopOnError: stopOnError)) {
           if (stopOnError) {
             return false;
@@ -136,10 +169,12 @@ class SyncService extends ChangeNotifier {
           }
           success = false;
         }
-        return success;
       }
     }
-    return true;
+    if (success) {
+      await _updateStats();
+    }
+    return success;
   }
 
   Future<bool> checkForUpdates() async {
@@ -323,6 +358,7 @@ class SyncService extends ChangeNotifier {
           ...await _db.managers.prayers.map((p) => p.image).get(),
         ], value: (name) => etagMap[name]);
       }
+      _log.fine('Downloading ${imagesWithEtag.length} image(s)...');
       success = await _db.transaction(() async {
         bool success = true;
         for (final entry in imagesWithEtag!.entries) {
@@ -359,6 +395,9 @@ class SyncService extends ChangeNotifier {
     final downloaded = Map.fromEntries(
       await _db.managers.images.map((i) => MapEntry(i.name, i.etag)).get(),
     );
+    if (downloaded.isEmpty) {
+      return true;
+    }
     return downloadImages(imagesWithEtag: downloaded, stopOnError: stopOnError);
   }
 
@@ -416,6 +455,7 @@ class SyncService extends ChangeNotifier {
             ...step.voices,
         ], value: (name) => etagMap[name]);
       }
+      _log.fine('Downloading ${voicesWithEtag.length} image(s)...');
       success = await _db.transaction(() async {
         bool success = true;
         for (final entry in voicesWithEtag!.entries) {
@@ -452,6 +492,9 @@ class SyncService extends ChangeNotifier {
     final downloaded = Map.fromEntries(
       await _db.managers.voices.map((v) => MapEntry(v.name, v.etag)).get(),
     );
+    if (downloaded.isEmpty) {
+      return true;
+    }
     return downloadVoices(voicesWithEtag: downloaded, stopOnError: stopOnError);
   }
 }

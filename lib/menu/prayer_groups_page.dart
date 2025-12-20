@@ -2,13 +2,10 @@ import 'dart:async' show TimeoutException;
 
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart' show Consumer2;
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:universal_io/universal_io.dart';
 
 import '../data/database.dart';
-import '../data/preferences.dart';
-import '../data/versions.dart';
 import '../prayer/prayer_image.dart';
 import '../prayer/search.dart';
 import '../routes.dart';
@@ -42,14 +39,13 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
         body = const Center(child: CircularProgressIndicator());
       } else {
         final items = snapshot.data!;
-        body = Consumer2<Preferences, SyncService>(
-          builder: (context, prefs, srv, grid) {
-            if (prefs.versions case final Versions v
-                when v.images.isEmpty || v.voices.isEmpty) {
+        body = Consumer<SyncService>(
+          builder: (context, srv, grid) {
+            if (srv.downloadableImages > 0 || srv.downloadableVoices > 0) {
               return _buildSyncNotification(
                 srv,
                 grid!,
-                'Le szeretnéd most tölteni az imákhoz tartozó képeket és hangokat?\n\nKésőbb a beállítások oldalról is megteheted ezt.',
+                'Le szeretnéd most tölteni az összes imához tartozó képet és hangot?\n\nKésőbb a beállítások oldalról is megteheted ezt.',
                 'Letöltés',
               );
             }
@@ -57,7 +53,7 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
               return _buildSyncNotification(
                 srv,
                 grid!,
-                'Szeretnéd most frissíteni az imákhoz tartozó képeket és/vagy hangokat?',
+                'A korábban letöltött adatok egy újabb verziója elérhető, szeretnéd most frissíteni ezeket?',
                 'Frissítés',
               );
             }
