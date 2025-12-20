@@ -168,8 +168,8 @@ class SyncService extends ChangeNotifier {
     }
     _setStatus(SyncStatus.dataDownload);
     try {
-      final response = await _get<List<Json>>(Env.serverDownloadDataPath);
-      if (response?.data case final List<Json> data
+      final response = await _get<List>(Env.serverDownloadDataPath);
+      if (response?.data case final List data
           when response?.statusCode == HttpStatus.ok) {
         final groups = <PrayerGroup>[];
         final prayers = <Prayer>[];
