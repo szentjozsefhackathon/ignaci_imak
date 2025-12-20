@@ -87,13 +87,16 @@ class PrayerImage extends StatelessWidget {
               ) ??
               const SizedBox();
         }
-        if (snapshot.hasError || !snapshot.hasData) {
+        if (snapshot.hasError) {
           return errorBuilder?.call(
                 context,
                 snapshot.error!,
                 snapshot.stackTrace,
               ) ??
               const SizedBox();
+        }
+        if (!snapshot.hasData) {
+          return const SizedBox();
         }
         return Image.memory(
           snapshot.data!.data,
