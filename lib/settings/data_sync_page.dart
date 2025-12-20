@@ -99,19 +99,26 @@ class _DataSyncListItem extends StatelessWidget {
     final localVersion = getVersion(
       context.select<Preferences, Versions?>((p) => p.versions),
     );
+    final hasServer = serverVersion?.isNotEmpty ?? false;
+    final hasLocal = localVersion?.isNotEmpty ?? false;
 
-    final Widget? subtitle;
+    Widget? trailing;
+    final Text? subtitle;
     VoidCallback? onTap;
-    if (localVersion == null || serverVersion == null) {
-      subtitle = null;
-    } else if (isSyncing && localVersion.isEmpty) {
-      subtitle = const Text('Letöltés folyamatban...');
-    } else if (isSyncing && localVersion.isNotEmpty) {
-      subtitle = const Text('Frissítés folyamatban...');
-    } else if (serverVersion.isNotEmpty &&
-        localVersion.isEmpty &&
-        serverVersion != localVersion) {
-      subtitle = const Text('Érintsd meg a letöltéshez');
+    if (isSyncing) {
+      trailing = const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 3),
+      );
+      subtitle = hasLocal
+          ? const Text('Frissítés folyamatban...')
+          : const Text('Letöltés folyamatban...');
+    } else if (hasServer && !hasLocal) {
+      trailing = const Icon(Icons.file_download_outlined);
+      subtitle = kDebugMode
+          ? Text('Érintsd meg a letöltéshez ($serverVersion)')
+          : const Text('Érintsd meg a letöltéshez');
       onTap = () async {
         final success = await downloadAll.call();
         if (!context.mounted) {
@@ -127,10 +134,11 @@ class _DataSyncListItem extends StatelessWidget {
           );
         }
       };
-    } else if (serverVersion.isNotEmpty &&
-        localVersion.isNotEmpty &&
-        serverVersion != localVersion) {
-      subtitle = Text('Frissítés elérhető: $localVersion -> $serverVersion');
+    } else if (hasServer && hasLocal && serverVersion != localVersion) {
+      trailing = const Icon(Icons.sync_rounded);
+      subtitle = kDebugMode
+          ? Text('Frissítés elérhető ($localVersion -> $serverVersion)')
+          : const Text('Frissítés elérhető, érintsd meg a letöltéshez');
       onTap = () async {
         final success = await updateExisting.call();
         if (!context.mounted) {
@@ -146,23 +154,18 @@ class _DataSyncListItem extends StatelessWidget {
           );
         }
       };
-    } else if (localVersion.isNotEmpty) {
-      subtitle = Text(localVersion);
+    } else if (hasLocal) {
+      trailing = const Icon(Icons.check_rounded);
+      subtitle = kDebugMode ? Text(localVersion!) : const Text('Letöltve');
     } else {
-      subtitle = const Text('Nincs letöltve');
+      subtitle = null;
     }
 
     return ListTile(
       title: Text(title),
       subtitle: subtitle,
-      enabled: !isSyncing && onTap != null,
-      trailing: isSyncing
-          ? const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 3),
-            )
-          : null,
+      enabled: !isSyncing,
+      trailing: trailing,
       onTap: onTap,
     );
   }
