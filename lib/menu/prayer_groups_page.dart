@@ -1,6 +1,7 @@
 import 'dart:async' show TimeoutException;
 
 import 'package:app_settings/app_settings.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:sentry_flutter/sentry_flutter.dart' show SentryFlutter;
 import 'package:universal_io/universal_io.dart';
@@ -28,6 +29,21 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
 
   void _trySync() => context.read<SyncService>().trySync(stopOnError: true);
 
+  Future<void> _downloadMissingImages(List<PrayerGroup> groups) async {
+    if (kIsWeb || groups.isEmpty) {
+      return;
+    }
+    final srv = context.read<SyncService>();
+    final db = context.read<Database>();
+    final downloadedImages = await db.managers.images.map((i) => i.name).get();
+    await srv.downloadImages(
+      images: groups
+          .where((g) => !downloadedImages.contains(g.image))
+          .map((g) => (name: g.image, etag: null)),
+      stopOnError: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) => StreamBuilder(
     stream: context.read<Database>().prayersDao.watchPrayerGroups(),
@@ -39,22 +55,22 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
         body = const Center(child: CircularProgressIndicator());
       } else {
         final items = snapshot.data!;
+        _downloadMissingImages(items).ignore();
+
         body = Consumer<SyncService>(
           builder: (context, srv, grid) {
-            if (srv.downloadableImages > 0 || srv.downloadableVoices > 0) {
-              return _buildSyncNotification(
-                srv,
-                grid!,
-                'Le szeretnéd most tölteni az összes imához tartozó képet és hangot?\n\nKésőbb a beállítások oldalról is megteheted ezt.',
-                'Letöltés',
-              );
-            }
             if (srv.status == SyncStatus.updateAvailable) {
               return _buildSyncNotification(
-                srv,
                 grid!,
                 'A korábban letöltött adatok egy újabb verziója elérhető, szeretnéd most frissíteni ezeket?',
                 'Frissítés',
+              );
+            }
+            if (srv.downloadableImages > 0 || srv.downloadableVoices > 0) {
+              return _buildSyncNotification(
+                grid!,
+                'Le szeretnéd most tölteni az összes imához tartozó képet és hangot?\n\nKésőbb a beállítások oldalról is megteheted ezt.',
+                'Letöltés',
               );
             }
             return grid!;
@@ -167,7 +183,6 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
   );
 
   Widget _buildSyncNotification(
-    SyncService srv,
     Widget content,
     String message,
     String positiveButton,
@@ -177,7 +192,7 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: srv.ignoreUpdate,
+            onPressed: () => context.read<SyncService>().ignoreUpdate(),
             child: const Text('Elrejtés'),
           ),
           TextButton(

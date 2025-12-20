@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../data/database.dart';
@@ -5,11 +6,30 @@ import '../prayer/prayer_app_bar.dart';
 import '../prayer/prayer_image.dart';
 import '../prayer/search.dart';
 import '../routes.dart';
+import '../services.dart';
 
 class PrayersPage extends StatelessWidget {
   const PrayersPage({super.key, required this.group});
 
   final PrayerGroup group;
+
+  Future<void> _downloadMissingImages(
+    BuildContext context,
+    List<Prayer> prayers,
+  ) async {
+    if (kIsWeb || prayers.isEmpty) {
+      return;
+    }
+    final srv = context.read<SyncService>();
+    final db = context.read<Database>();
+    final downloadedImages = await db.managers.images.map((i) => i.name).get();
+    await srv.downloadImages(
+      images: prayers
+          .where((p) => !downloadedImages.contains(p.image))
+          .map((p) => (name: p.image, etag: null)),
+      stopOnError: true,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +54,8 @@ class PrayersPage extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
             final prayers = snapshot.data!;
+            _downloadMissingImages(context, prayers).ignore();
+
             return GridView.builder(
               padding: const EdgeInsets.all(16),
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(

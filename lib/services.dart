@@ -340,6 +340,9 @@ class SyncService extends ChangeNotifier {
     Iterable<MediaWithEtag>? images,
     required bool stopOnError,
   }) async {
+    if (images?.isEmpty ?? false) {
+      return true;
+    }
     switch (_status) {
       case SyncStatus.idle:
       case SyncStatus.updateAvailable:
@@ -413,9 +416,6 @@ class SyncService extends ChangeNotifier {
     final downloaded = await _db.managers.images
         .map((i) => (name: i.name, etag: i.etag))
         .get();
-    if (downloaded.isEmpty) {
-      return true;
-    }
     return downloadImages(images: downloaded, stopOnError: stopOnError);
   }
 
@@ -445,6 +445,9 @@ class SyncService extends ChangeNotifier {
     Iterable<MediaWithEtag>? voices,
     required bool stopOnError,
   }) async {
+    if (voices?.isEmpty ?? false) {
+      return true;
+    }
     switch (_status) {
       case SyncStatus.idle:
       case SyncStatus.updateAvailable:
@@ -518,9 +521,6 @@ class SyncService extends ChangeNotifier {
     final downloaded = await _db.managers.voices
         .map((v) => (name: v.name, etag: v.etag))
         .get();
-    if (downloaded.isEmpty) {
-      return true;
-    }
     return downloadVoices(voices: downloaded, stopOnError: stopOnError);
   }
 }
