@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show ChangeNotifier, kDebugMode;
@@ -99,7 +100,12 @@ class SyncService extends ChangeNotifier {
         : Options(headers: {HttpHeaders.ifNoneMatchHeader: etag}),
   );
 
-  Future<bool> trySync({required bool stopOnError}) async {
+  Future<bool> trySync({required bool stopOnError, bool? withMedia}) async {
+    if (withMedia == null) {
+      final c = await Connectivity().checkConnectivity();
+      _log.fine(c);
+      withMedia = !c.contains(ConnectivityResult.mobile);
+    }
     if (!await checkForUpdates()) {
       return false;
     }
@@ -107,20 +113,22 @@ class SyncService extends ChangeNotifier {
       if (!await downloadData()) {
         return false;
       }
-      bool success = true;
-      if (!await updateImages(stopOnError: stopOnError)) {
-        if (stopOnError) {
-          return false;
+      if (withMedia) {
+        bool success = true;
+        if (!await updateImages(stopOnError: stopOnError)) {
+          if (stopOnError) {
+            return false;
+          }
+          success = false;
         }
-        success = false;
-      }
-      if (!await updateVoices(stopOnError: stopOnError)) {
-        if (stopOnError) {
-          return false;
+        if (!await updateVoices(stopOnError: stopOnError)) {
+          if (stopOnError) {
+            return false;
+          }
+          success = false;
         }
-        success = false;
+        return success;
       }
-      return success;
     }
     return true;
   }
