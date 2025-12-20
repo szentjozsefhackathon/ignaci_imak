@@ -84,6 +84,9 @@ class SyncService extends ChangeNotifier {
       // trigger reloading images
       imageCache.clear();
       imageCache.clearLiveImages();
+    } catch (e, s) {
+      _log.severe('Failed to delete data', e, s);
+      rethrow;
     } finally {
       _setStatus(SyncStatus.idle);
     }
@@ -143,8 +146,11 @@ class SyncService extends ChangeNotifier {
         }
         return true;
       } else {
-        _log.warning('version response data: ${response?.data}');
+        _log.warning('Version response: ${response?.data}');
       }
+    } catch (e, s) {
+      _log.severe('Failed to download versions', e, s);
+      rethrow;
     } finally {
       _setStatus(finalStatus);
     }
@@ -226,12 +232,14 @@ class SyncService extends ChangeNotifier {
           _prefs.versions?.copyWith(data: v.data) ??
               Versions.downloaded(v, data: true),
         );
-        //_db.markTablesUpdated()
         _setStatus(SyncStatus.idle);
         return true;
       } else {
-        _log.warning('data response data: ${response?.data}');
+        _log.warning('Data response: ${response?.data}');
       }
+    } catch (e, s) {
+      _log.severe('Failed to download data', e, s);
+      rethrow;
     } finally {
       _setStatus(SyncStatus.idle);
     }
@@ -313,6 +321,9 @@ class SyncService extends ChangeNotifier {
         }
         return success;
       });
+    } catch (e, s) {
+      _log.severe('Failed to download images', e, s);
+      rethrow;
     } finally {
       _setStatus(SyncStatus.idle);
     }
@@ -401,6 +412,9 @@ class SyncService extends ChangeNotifier {
         }
         return success;
       });
+    } catch (e, s) {
+      _log.severe('Failed to download images', e, s);
+      rethrow;
     } finally {
       _setStatus(SyncStatus.idle);
     }
