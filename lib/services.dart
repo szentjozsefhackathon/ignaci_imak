@@ -71,6 +71,7 @@ class SyncService extends ChangeNotifier {
 
   void ignoreUpdate() {
     if (_status == SyncStatus.updateAvailable) {
+      _latestVersions = _prefs.versions;
       _setStatus(SyncStatus.idle);
     }
   }
@@ -99,6 +100,14 @@ class SyncService extends ChangeNotifier {
         ? null
         : Options(headers: {HttpHeaders.ifNoneMatchHeader: etag}),
   );
+
+  SyncStatus get _isStatusIdleOrUpdate {
+    final v = _latestVersions;
+    if (v != null && (_prefs.versions?.isUpdateAvailable(v) ?? true)) {
+      return SyncStatus.updateAvailable;
+    }
+    return SyncStatus.idle;
+  }
 
   Future<bool> trySync({required bool stopOnError, bool? withMedia}) async {
     if (withMedia == null) {
@@ -144,6 +153,7 @@ class SyncService extends ChangeNotifier {
         return false;
     }
     _setStatus(SyncStatus.versionCheck);
+    bool success = false;
     SyncStatus finalStatus = SyncStatus.idle;
     try {
       final response = await _get<Json>(Env.serverCheckVersionsPath);
@@ -153,11 +163,9 @@ class SyncService extends ChangeNotifier {
         if (v != _latestVersions) {
           _log.fine('$_latestVersions -> $v');
           _latestVersions = v;
-          if (_prefs.versions?.isUpdateAvailable(v) ?? true) {
-            finalStatus = SyncStatus.updateAvailable;
-          }
+          finalStatus = _isStatusIdleOrUpdate;
         }
-        return true;
+        success = true;
       } else {
         _log.warning('Version response: ${response?.data}');
       }
@@ -167,7 +175,7 @@ class SyncService extends ChangeNotifier {
     } finally {
       _setStatus(finalStatus);
     }
-    return false;
+    return success;
   }
 
   Future<bool> downloadData() async {
@@ -186,6 +194,8 @@ class SyncService extends ChangeNotifier {
       return false;
     }
     _setStatus(SyncStatus.dataDownload);
+    bool success = false;
+    SyncStatus finalStatus = SyncStatus.idle;
     try {
       final response = await _get<List>(Env.serverDownloadDataPath);
       if (response?.data case final List data
@@ -245,8 +255,8 @@ class SyncService extends ChangeNotifier {
           _prefs.versions?.copyWith(data: v.data) ??
               Versions.downloaded(v, data: true),
         );
-        _setStatus(SyncStatus.idle);
-        return true;
+        finalStatus = _isStatusIdleOrUpdate;
+        success = true;
       } else {
         _log.warning('Data response: ${response?.data}');
       }
@@ -254,9 +264,9 @@ class SyncService extends ChangeNotifier {
       _log.severe('Failed to download data', e, s);
       rethrow;
     } finally {
-      _setStatus(SyncStatus.idle);
+      _setStatus(finalStatus);
     }
-    return false;
+    return success;
   }
 
   Future<int?> _downloadImage({
@@ -300,8 +310,9 @@ class SyncService extends ChangeNotifier {
       _log.warning('Cannot download images without server versions');
       return false;
     }
-    bool success = true;
     _setStatus(SyncStatus.imageDownload);
+    bool success = true;
+    SyncStatus finalStatus = SyncStatus.idle;
     try {
       if (imagesWithEtag == null) {
         final etagMap = Map.fromEntries(
@@ -331,6 +342,7 @@ class SyncService extends ChangeNotifier {
             _prefs.versions?.copyWith(images: v.data) ??
                 Versions.downloaded(v, images: true),
           );
+          finalStatus = _isStatusIdleOrUpdate;
         }
         return success;
       });
@@ -338,7 +350,7 @@ class SyncService extends ChangeNotifier {
       _log.severe('Failed to download images', e, s);
       rethrow;
     } finally {
-      _setStatus(SyncStatus.idle);
+      _setStatus(finalStatus);
     }
     return success;
   }
@@ -391,8 +403,9 @@ class SyncService extends ChangeNotifier {
       _log.warning('Cannot download voices without server versions');
       return false;
     }
-    bool success = true;
     _setStatus(SyncStatus.voiceDownload);
+    bool success = true;
+    SyncStatus finalStatus = SyncStatus.idle;
     try {
       if (voicesWithEtag == null) {
         final etagMap = Map.fromEntries(
@@ -422,6 +435,7 @@ class SyncService extends ChangeNotifier {
             _prefs.versions?.copyWith(voices: v.data) ??
                 Versions.downloaded(v, voices: true),
           );
+          finalStatus = _isStatusIdleOrUpdate;
         }
         return success;
       });
@@ -429,7 +443,7 @@ class SyncService extends ChangeNotifier {
       _log.severe('Failed to download images', e, s);
       rethrow;
     } finally {
-      _setStatus(SyncStatus.idle);
+      _setStatus(finalStatus);
     }
     return success;
   }
