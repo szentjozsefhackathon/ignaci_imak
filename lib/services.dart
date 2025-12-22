@@ -39,7 +39,13 @@ class SyncService extends ChangeNotifier {
       ),
     );
     if (kDebugMode) {
-      _client.interceptors.add(LogInterceptor(logPrint: _log.finer));
+      _client.interceptors.add(
+        LogInterceptor(
+          request: false,
+          responseHeader: false,
+          logPrint: _log.finer,
+        ),
+      );
     }
     _client.addSentry(
       captureFailedRequests: true,
