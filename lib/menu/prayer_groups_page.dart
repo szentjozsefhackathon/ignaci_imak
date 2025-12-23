@@ -11,6 +11,7 @@ import '../prayer/prayer_image.dart';
 import '../prayer/search.dart';
 import '../routes.dart';
 import '../services.dart';
+import 'common.dart';
 
 class PrayerGroupsPage extends StatefulWidget {
   const PrayerGroupsPage({super.key});
@@ -27,21 +28,18 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
     SentryFlutter.currentDisplay()?.reportFullyDisplayed();
   }
 
-  void _trySync() => context.read<SyncService>().trySync(stopOnError: true);
-
-  Future<void> _downloadMissingImages(List<PrayerGroup> groups) async {
-    if (kIsWeb || groups.isEmpty) {
-      return;
-    }
-    final srv = context.read<SyncService>();
-    final db = context.read<Database>();
-    final downloadedImages = await db.managers.images.map((i) => i.name).get();
-    await srv.downloadImages(
-      images: groups
-          .where((g) => !downloadedImages.contains(g.image))
-          .map((g) => (name: g.image, etag: null)),
+  Future<void> _trySync() async {
+    final success = await context.read<SyncService>().trySync(
       stopOnError: true,
     );
+    if (kIsWeb || !success || !mounted) {
+      return;
+    }
+    final groups = await context.read<Database>().prayersDao.getPrayerGroups();
+    if (!mounted) {
+      return;
+    }
+    await downloadMissingImages(context, groups.map((g) => g.image));
   }
 
   @override
@@ -55,8 +53,6 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
         body = const Center(child: CircularProgressIndicator());
       } else {
         final items = snapshot.data!;
-        _downloadMissingImages(items).ignore();
-
         body = Consumer<SyncService>(
           builder: (context, srv, grid) {
             if (srv.status == SyncStatus.updateAvailable) {

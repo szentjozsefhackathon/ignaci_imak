@@ -22,6 +22,9 @@ class PrayersDao extends DatabaseAccessor<Database> with _$PrayersDaoMixin {
     return prayers;
   }
 
+  Future<List<PrayerGroup>> getPrayerGroups() =>
+      db.managers.prayerGroups.orderBy((o) => o.title.asc()).get();
+
   Stream<List<PrayerGroup>> watchPrayerGroups() =>
       db.managers.prayerGroups.orderBy((o) => o.title.asc()).watch();
 
