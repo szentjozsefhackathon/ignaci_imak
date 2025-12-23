@@ -4,5 +4,8 @@
 <dict>
 	<key>com.apple.developer.usernotifications.communication</key>
 	<true/>
+	<!-- https://pub.dev/packages/internet_connection_checker#mac-os-configuration -->
+	<key>com.apple.security.network.server</key>
+	<true/>
 </dict>
 </plist>

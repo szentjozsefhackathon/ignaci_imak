@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
-import '../data_handlers/data_manager.dart';
+import '../data/database.dart' hide Image;
+import '../env.dart';
 
 class PrayerImage extends StatelessWidget {
   const PrayerImage({
@@ -65,7 +66,7 @@ class PrayerImage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (kIsWeb) {
       return Image.network(
-        DataManager.instance.images.getDownloadUri(name).toString(),
+        Env.serverUri.replace(path: Env.serverImagePath(name)).toString(),
         fit: BoxFit.cover,
         opacity: opacity,
         frameBuilder: frameBuilder,
@@ -74,8 +75,8 @@ class PrayerImage extends StatelessWidget {
       );
     }
 
-    return FutureBuilder(
-      future: DataManager.instance.images.getLocalFile(name),
+    return StreamBuilder(
+      stream: context.read<Database>().mediaDao.watchImageByName(name),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return loadingBuilder?.call(
@@ -86,7 +87,7 @@ class PrayerImage extends StatelessWidget {
               ) ??
               const SizedBox();
         }
-        if (snapshot.hasError || !snapshot.hasData) {
+        if (snapshot.hasError) {
           return errorBuilder?.call(
                 context,
                 snapshot.error!,
@@ -94,8 +95,11 @@ class PrayerImage extends StatelessWidget {
               ) ??
               const SizedBox();
         }
-        return Image.file(
-          snapshot.data!,
+        if (!snapshot.hasData) {
+          return const SizedBox();
+        }
+        return Image.memory(
+          snapshot.data!.data,
           fit: BoxFit.cover,
           opacity: opacity,
           frameBuilder: frameBuilder,

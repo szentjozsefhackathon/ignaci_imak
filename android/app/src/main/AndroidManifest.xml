@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- https://pub.dev/packages/internet_connection_checker#android-configuration -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
     <!-- https://pub.dev/packages/do_not_disturb#permissions-and-setup -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 

@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart'
+    show WatchContext, ChangeNotifierProvider;
 import 'package:timezone/timezone.dart';
 import 'package:universal_io/universal_io.dart' show Platform;
 
@@ -528,4 +529,9 @@ class _AddBottomSheetState extends State<_AddBottomSheet> {
 extension DateTimeExtensions on DateTime {
   DateTime copyWithWeekday(int weekday) =>
       copyWith(day: day + weekday - this.weekday);
+}
+
+class NotificationsProvider extends ChangeNotifierProvider<Notifications> {
+  NotificationsProvider({super.key})
+    : super(lazy: false, create: (_) => Notifications()..initialize());
 }

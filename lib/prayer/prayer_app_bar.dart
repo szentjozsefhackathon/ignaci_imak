@@ -2,8 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../data/prayer.dart';
-import '../data/prayer_group.dart';
+import '../data/database.dart' show PrayerGroup, Prayer;
 import 'prayer_image.dart';
 
 class PrayerAppBar extends StatelessWidget {
