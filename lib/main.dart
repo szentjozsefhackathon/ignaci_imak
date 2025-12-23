@@ -5,7 +5,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
-import 'package:provider/provider.dart' show MultiProvider, WatchContext;
+import 'package:provider/provider.dart' show MultiProvider, Selector;
 import 'package:relative_time/relative_time.dart';
 import 'package:timezone/data/latest_all.dart' as tzdb;
 import 'package:timezone/timezone.dart'
@@ -74,15 +74,15 @@ class IgnacioPrayersApp extends StatelessWidget {
       ],
       DndProvider(),
     ],
-    builder: (context, widget) {
-      final prefs = context.watch<Preferences>();
-      return MaterialApp(
+    builder: (context, widget) => Selector<Preferences, AppThemeMode>(
+      selector: (context, p) => p.themeMode,
+      builder: (context, themeMode, _) => MaterialApp(
         title: 'Ignáci imák',
         theme: AppTheme.lightTheme,
-        darkTheme: prefs.themeMode == AppThemeMode.oled
+        darkTheme: themeMode == AppThemeMode.oled
             ? AppTheme.oledTheme
             : AppTheme.darkTheme, // Default dark theme
-        themeMode: switch (prefs.themeMode) {
+        themeMode: switch (themeMode) {
           AppThemeMode.light => ThemeMode.light,
           AppThemeMode.dark || AppThemeMode.oled => ThemeMode.dark,
           _ => ThemeMode.system,
@@ -98,7 +98,7 @@ class IgnacioPrayersApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
         ],
         supportedLocales: const [Locale('hu')],
-      );
-    },
+      ),
+    ),
   );
 }
