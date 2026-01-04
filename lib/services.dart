@@ -94,7 +94,7 @@ class SyncService extends ChangeNotifier {
   int get downloadableImages => _allImages - _downloadedImages;
   int get downloadableVoices => _allVoices - _downloadedVoices;
 
-  Future<void> _updateStats() async {
+  Future<void> updateStats() async {
     _allImages =
         await _db.managers.prayerGroups.count() +
         await _db.managers.prayers.count();
@@ -201,7 +201,7 @@ class SyncService extends ChangeNotifier {
       }
     }
     if (success) {
-      await _updateStats();
+      await updateStats();
     }
     return success;
   }
@@ -210,7 +210,7 @@ class SyncService extends ChangeNotifier {
     if (!await _checkForUpdates()) {
       return;
     }
-    await _updateStats();
+    await updateStats();
   }
 
   Future<bool> _checkForUpdates() async {

@@ -18,6 +18,5 @@ Future<void> downloadMissingImages(
     images: images
         .where((image) => !downloadedImages.contains(image))
         .map((image) => (name: image, etag: null)),
-    stopOnError: true,
   );
 }
