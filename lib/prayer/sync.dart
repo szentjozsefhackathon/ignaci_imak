@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class DataSyncListItemProgressIndicator extends StatelessWidget {
-  const DataSyncListItemProgressIndicator({super.key, this.value});
+class ListItemProgressIndicator extends StatelessWidget {
+  const ListItemProgressIndicator({super.key, this.value});
 
   final double? value;
 

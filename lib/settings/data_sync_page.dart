@@ -6,8 +6,8 @@ import 'package:relative_time/relative_time.dart';
 
 import '../data/preferences.dart';
 import '../data/versions.dart';
+import '../prayer/sync.dart';
 import '../services.dart';
-import '../widget.dart';
 
 class DataSyncPage extends StatelessWidget {
   const DataSyncPage({super.key});
@@ -72,7 +72,7 @@ class DataSyncPage extends StatelessWidget {
                               : 'nincsenek adatok, érintsd meg az ellenőrzéshez',
                         ),
                   trailing: status == SyncStatus.versionCheck
-                      ? const DataSyncListItemProgressIndicator()
+                      ? const ListItemProgressIndicator()
                       : const Icon(Icons.sync_rounded),
                   onTap: status == SyncStatus.versionCheck
                       ? null
@@ -160,7 +160,7 @@ class _DataSyncListItem extends StatelessWidget {
     final Text? subtitle;
     VoidCallback? onTap;
     if (isSyncing) {
-      trailing = const DataSyncListItemProgressIndicator();
+      trailing = const ListItemProgressIndicator();
       subtitle = hasLocal
           ? const Text('frissítés folyamatban...')
           : const Text('letöltés folyamatban...');
@@ -192,7 +192,7 @@ class _DataSyncListItem extends StatelessWidget {
       };
     } else if (hasLocal) {
       if (stats != null && stats!.all > 0 && stats!.all != stats!.downloaded) {
-        trailing = DataSyncListItemProgressIndicator(
+        trailing = ListItemProgressIndicator(
           value: stats!.downloaded / stats!.all,
         );
         subtitle = Text(

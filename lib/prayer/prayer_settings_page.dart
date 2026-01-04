@@ -10,8 +10,8 @@ import '../routes.dart';
 import '../services.dart';
 import '../settings/dnd.dart';
 import '../settings/focus_status.dart';
-import '../widget.dart';
 import 'prayer_page.dart';
+import 'sync.dart';
 
 class PrayerSettingsPage extends StatelessWidget {
   const PrayerSettingsPage({super.key, required this.prayer});
@@ -202,7 +202,7 @@ class _DownloadVoiceButtonState extends State<_DownloadVoiceButton> {
     if (_downloading) {
       return const Padding(
         padding: EdgeInsets.symmetric(horizontal: 12),
-        child: DataSyncListItemProgressIndicator(),
+        child: ListItemProgressIndicator(),
       );
     }
     return IconButton(
