@@ -30,10 +30,10 @@ class PrayerSettingsPage extends StatelessWidget {
           ),
           if (Platform.isAndroid)
             DndSwitchListTile(value: prefs.dnd, onChanged: prefs.setDnd),
-          Selector<FocusStatus, bool?>(
+          if (Platform.isIOS) Selector<FocusStatus, bool?>(
             selector: (context, fs) => fs.status,
             builder: (context, isFocused, _) {
-              if (kIsWeb || !Platform.isIOS || isFocused == true) {
+              if (isFocused == true) {
                 return const SizedBox.shrink();
               }
               return _FocusHint();
