@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:universal_io/universal_io.dart' show Platform;
@@ -6,8 +7,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/database.dart';
 import '../data/preferences.dart';
 import '../routes.dart';
+import '../services.dart';
 import '../settings/dnd.dart';
 import '../settings/focus_status.dart';
+import '../widget.dart';
 import 'prayer_page.dart';
 
 class PrayerSettingsPage extends StatelessWidget {
@@ -30,15 +33,16 @@ class PrayerSettingsPage extends StatelessWidget {
           ),
           if (Platform.isAndroid)
             DndSwitchListTile(value: prefs.dnd, onChanged: prefs.setDnd),
-          if (Platform.isIOS) Selector<FocusStatus, bool?>(
-            selector: (context, fs) => fs.status,
-            builder: (context, isFocused, _) {
-              if (isFocused == true) {
-                return const SizedBox.shrink();
-              }
-              return _FocusHint();
-            },
-          ),
+          if (Platform.isIOS)
+            Selector<FocusStatus, bool?>(
+              selector: (context, fs) => fs.status,
+              builder: (context, isFocused, _) {
+                if (isFocused == true) {
+                  return const SizedBox.shrink();
+                }
+                return _FocusHint();
+              },
+            ),
           if (prayer.voiceOptions.isEmpty)
             const SwitchListTile(
               title: Text('Hang'),
@@ -47,8 +51,8 @@ class PrayerSettingsPage extends StatelessWidget {
               onChanged: null,
             )
           else
-            FutureBuilder(
-              future: context.read<Database>().mediaDao.availableVoiceOptionsOf(
+            StreamBuilder(
+              stream: context.read<Database>().mediaDao.watchVoiceOptionsOf(
                 prayer,
               ),
               builder: (context, snapshot) {
@@ -79,15 +83,21 @@ class PrayerSettingsPage extends StatelessWidget {
                             ? prefs.setPrayerSoundEnabled
                             : null,
                       ),
-                      ...prayer.voiceOptions.map((voice) {
-                        final available = kIsWeb || data.contains(voice);
+                      ...prayer.voiceOptions.mapIndexed((voiceIndex, voice) {
+                        final available = kIsWeb || data[voice]!;
                         return RadioListTile(
                           title: Text(voice),
                           subtitle: available
                               ? null
                               : const Text('Nincs letöltve'),
-                          value: voice,
-                          enabled: prefs.prayerSoundEnabled && available,
+                          value: available ? voice : '',
+                          enabled: available && prefs.prayerSoundEnabled,
+                          secondary: available || !prefs.prayerSoundEnabled
+                              ? null
+                              : _DownloadVoiceButton(
+                                  prayer: prayer,
+                                  voiceIndex: voiceIndex,
+                                ),
                         );
                       }),
                     ],
@@ -170,6 +180,56 @@ class PrayerSettingsPage extends StatelessWidget {
         tooltip: 'Ima indítása',
         child: const Icon(Icons.play_arrow_rounded),
       ),
+    );
+  }
+}
+
+class _DownloadVoiceButton extends StatefulWidget {
+  const _DownloadVoiceButton({required this.prayer, required this.voiceIndex});
+
+  final Prayer prayer;
+  final int voiceIndex;
+
+  @override
+  State<_DownloadVoiceButton> createState() => _DownloadVoiceButtonState();
+}
+
+class _DownloadVoiceButtonState extends State<_DownloadVoiceButton> {
+  bool _downloading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_downloading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12),
+        child: DataSyncListItemProgressIndicator(),
+      );
+    }
+    return IconButton(
+      icon: const Icon(Icons.file_download_outlined),
+      color: Theme.of(context).colorScheme.onSurface,
+      onPressed: () async {
+        setState(() => _downloading = true);
+        final steps = await context.read<Database>().prayersDao.prayerStepsOf(
+          widget.prayer,
+        );
+        if (!context.mounted) {
+          return;
+        }
+        if (steps.isEmpty) {
+          setState(() => _downloading = false);
+          return;
+        }
+        await context.read<SyncService>().downloadVoices(
+          voices: steps.map(
+            (step) => (name: step.voices[widget.voiceIndex], etag: null),
+          ),
+        );
+        if (!mounted) {
+          return;
+        }
+        setState(() => _downloading = false);
+      },
     );
   }
 }

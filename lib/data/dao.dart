@@ -76,19 +76,26 @@ class MediaDao extends DatabaseAccessor<Database> with _$MediaDaoMixin {
   Stream<Image?> watchImageByName(String name) =>
       db.managers.images.filter((g) => g.name(name)).watchSingleOrNull();
 
-  Future<List<String>> availableVoiceOptionsOf(Prayer prayer) async {
+  Stream<Map<String, bool>> watchVoiceOptionsOf(Prayer prayer) async* {
     final steps = await db.prayersDao.prayerStepsOf(prayer);
-    final names = <String, String>{};
+    final names = <String, Iterable<String>>{};
+    final allNames = <String>[];
     for (final option in prayer.voiceOptions) {
       final voiceIndex = prayer.voiceOptions.indexOf(option);
-      names[option] = steps.first.voices[voiceIndex];
+      final optionNames = steps.map((step) => step.voices[voiceIndex]);
+      names[option] = optionNames;
+      allNames.addAll(optionNames);
     }
-    final voiceNames = await db.managers.voices
-        .filter((v) => v.name.isIn(names.values))
+    final namesStream = db.managers.voices
+        .filter((v) => v.name.isIn(allNames))
         .map((v) => v.name)
-        .get();
-    return names.keys
-        .where((option) => voiceNames.contains(names[option]))
-        .toList(growable: false);
+        .watch();
+    await for (final downloadedNames in namesStream) {
+      yield Map.fromIterable(
+        prayer.voiceOptions,
+        value: (option) =>
+            names[option]!.every((name) => downloadedNames.contains(name)),
+      );
+    }
   }
 }

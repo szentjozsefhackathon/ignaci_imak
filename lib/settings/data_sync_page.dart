@@ -6,6 +6,7 @@ import 'package:relative_time/relative_time.dart';
 import '../data/preferences.dart';
 import '../data/versions.dart';
 import '../services.dart';
+import '../widget.dart';
 
 class DataSyncPage extends StatelessWidget {
   const DataSyncPage({super.key});
@@ -152,7 +153,7 @@ class _DataSyncListItem extends StatelessWidget {
     final Text? subtitle;
     VoidCallback? onTap;
     if (isSyncing) {
-      trailing = const _DataSyncListItemProgressIndicator();
+      trailing = const DataSyncListItemProgressIndicator();
       subtitle = hasLocal
           ? const Text('frissítés folyamatban...')
           : const Text('letöltés folyamatban...');
@@ -184,7 +185,7 @@ class _DataSyncListItem extends StatelessWidget {
       };
     } else if (hasLocal) {
       if (stats != null && stats!.all > 0 && stats!.all != stats!.downloaded) {
-        trailing = _DataSyncListItemProgressIndicator(
+        trailing = DataSyncListItemProgressIndicator(
           value: stats!.downloaded / stats!.all,
         );
         subtitle = Text(
@@ -207,16 +208,4 @@ class _DataSyncListItem extends StatelessWidget {
       onTap: onTap,
     );
   }
-}
-
-class _DataSyncListItemProgressIndicator extends StatelessWidget {
-  const _DataSyncListItemProgressIndicator({this.value});
-
-  final double? value;
-
-  @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: 24,
-    child: CircularProgressIndicator(strokeWidth: 2, value: value),
-  );
 }

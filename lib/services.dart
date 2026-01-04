@@ -366,7 +366,7 @@ class SyncService extends ChangeNotifier {
 
   Future<bool> downloadImages({
     Iterable<MediaWithEtag>? images,
-    required bool stopOnError,
+    bool stopOnError = true,
   }) async {
     if (images?.isEmpty ?? false) {
       return true;
@@ -432,7 +432,7 @@ class SyncService extends ChangeNotifier {
     return success;
   }
 
-  Future<bool> updateImages({required bool stopOnError}) async {
+  Future<bool> updateImages({bool stopOnError = true}) async {
     switch (_status) {
       case SyncStatus.idle:
       case SyncStatus.updateAvailable:
@@ -473,7 +473,7 @@ class SyncService extends ChangeNotifier {
 
   Future<bool> downloadVoices({
     Iterable<MediaWithEtag>? voices,
-    required bool stopOnError,
+    bool stopOnError = true,
   }) async {
     if (voices?.isEmpty ?? false) {
       return true;
@@ -539,7 +539,7 @@ class SyncService extends ChangeNotifier {
     return success;
   }
 
-  Future<bool> updateVoices({required bool stopOnError}) async {
+  Future<bool> updateVoices({bool stopOnError = true}) async {
     switch (_status) {
       case SyncStatus.idle:
       case SyncStatus.updateAvailable:
