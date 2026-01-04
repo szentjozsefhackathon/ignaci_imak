@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart' show Provider;
 
@@ -82,11 +83,24 @@ class Database extends _$Database {
   @override
   int get schemaVersion => 1;
 
+  static final _log = Logger('Database');
+
   static QueryExecutor _openConnection() => driftDatabase(
     name: 'ignaciimak',
     native: const DriftNativeOptions(
       // By default, `driftDatabase` from `package:drift_flutter` stores the database files in `getApplicationDocumentsDirectory()`.
       databaseDirectory: getApplicationSupportDirectory,
+    ),
+    web: DriftWebOptions(
+      sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+      driftWorker: Uri.parse('drift_worker.js'),
+      onResult: (result) {
+        if (result.missingFeatures.isNotEmpty) {
+          _log.warning(
+            'Using ${result.chosenImplementation} due to unsupported browser features: ${result.missingFeatures}',
+          );
+        }
+      },
     ),
   );
 }

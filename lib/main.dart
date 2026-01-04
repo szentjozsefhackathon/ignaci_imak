@@ -63,10 +63,10 @@ class IgnacioPrayersApp extends StatelessWidget {
   Widget build(BuildContext context) => MultiProvider(
     providers: [
       PreferencesProvider(prefs),
+      DatabaseProvider(),
+      SyncServiceProvider(),
       if (!kIsWeb) ...[
         NotificationsProvider(),
-        DatabaseProvider(),
-        SyncServiceProvider(),
         if (Platform.isIOS) FocusStatusProvider(),
       ],
       DndProvider(),

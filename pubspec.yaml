@@ -87,7 +87,9 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
+  http: ^1.6.0
   json_serializable: ^6.11.3
+  pubspec_lock_parse: ^2.2.0
   sentry_dart_plugin: ^3.2.0
 
 # For information on the generic Dart part of this file, see the
