@@ -1,54 +1,49 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:universal_io/universal_io.dart' show Platform;
 import 'package:url_launcher/url_launcher.dart';
 
-import '../data/prayer.dart';
-import '../data/settings_data.dart';
+import '../data/database.dart';
+import '../data/preferences.dart';
 import '../routes.dart';
+import '../services.dart';
 import '../settings/dnd.dart';
 import '../settings/focus_status.dart';
 import 'prayer_page.dart';
+import 'sync.dart';
 
-class PrayerSettingsPage extends StatefulWidget {
+class PrayerSettingsPage extends StatelessWidget {
   const PrayerSettingsPage({super.key, required this.prayer});
 
   final Prayer prayer;
 
   @override
-  State<PrayerSettingsPage> createState() => _PrayerSettingsPageState();
-}
-
-class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
-  @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsData>();
+    final prefs = context.watch<Preferences>();
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.prayer.title)),
+      appBar: AppBar(title: Text(prayer.title)),
       body: ListView(
         children: [
           SwitchListTile(
             title: const Text('Automatikus lapozás'),
-            value: settings.autoPageTurn,
-            onChanged: (v) => settings.autoPageTurn = v,
+            value: prefs.autoPageTurn,
+            onChanged: prefs.setAutoPageTurn,
           ),
           if (Platform.isAndroid)
-            DndSwitchListTile(
-              value: settings.dnd,
-              onChanged: (v) => settings.dnd = v,
+            DndSwitchListTile(value: prefs.dnd, onChanged: prefs.setDnd),
+          if (Platform.isIOS)
+            Selector<FocusStatus, bool?>(
+              selector: (context, fs) => fs.status,
+              builder: (context, isFocused, _) {
+                if (isFocused == true) {
+                  return const SizedBox.shrink();
+                }
+                return _FocusHint();
+              },
             ),
-          ValueListenableBuilder<bool?>(
-            valueListenable: FocusStatus.status,
-            builder: (context, isFocused, _) {
-              if (kIsWeb || !Platform.isIOS || isFocused == true) {
-                return const SizedBox.shrink();
-              }
-              return MeditationFocusHint();
-            },
-          ),
-          if (widget.prayer.voiceOptions.isEmpty)
+          if (prayer.voiceOptions.isEmpty)
             const SwitchListTile(
               title: Text('Hang'),
               subtitle: Text('Nincs ehhez az imához'),
@@ -56,8 +51,10 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
               onChanged: null,
             )
           else
-            FutureBuilder(
-              future: widget.prayer.availableVoiceOptions,
+            StreamBuilder(
+              stream: context.read<Database>().mediaDao.watchVoiceOptionsOf(
+                prayer,
+              ),
               builder: (context, snapshot) {
                 final data = snapshot.data;
                 if (data == null) {
@@ -69,10 +66,10 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
                   );
                 }
                 return RadioGroup(
-                  groupValue: settings.voiceChoice,
+                  groupValue: prefs.voiceChoice,
                   onChanged: (v) {
                     if (v != null) {
-                      settings.voiceChoice = v;
+                      prefs.setVoiceChoice(v);
                     }
                   },
                   child: Column(
@@ -80,21 +77,27 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
                       SwitchListTile(
                         title: const Text('Hang'),
                         value:
-                            settings.prayerSoundEnabled &&
+                            prefs.prayerSoundEnabled &&
                             (kIsWeb || data.isNotEmpty),
                         onChanged: kIsWeb || data.isNotEmpty
-                            ? (v) => settings.prayerSoundEnabled = v
+                            ? prefs.setPrayerSoundEnabled
                             : null,
                       ),
-                      ...widget.prayer.voiceOptions.map((voice) {
-                        final available = kIsWeb || data.contains(voice);
+                      ...prayer.voiceOptions.mapIndexed((voiceIndex, voice) {
+                        final available = kIsWeb || data[voice]!;
                         return RadioListTile(
                           title: Text(voice),
                           subtitle: available
                               ? null
                               : const Text('Nincs letöltve'),
-                          value: voice,
-                          enabled: settings.prayerSoundEnabled && available,
+                          value: available ? voice : '',
+                          enabled: available && prefs.prayerSoundEnabled,
+                          secondary: available || !prefs.prayerSoundEnabled
+                              ? null
+                              : _DownloadVoiceButton(
+                                  prayer: prayer,
+                                  voiceIndex: voiceIndex,
+                                ),
                         );
                       }),
                     ],
@@ -104,13 +107,13 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
             ),
           ListTile(
             title: const Text('Ima hossza'),
-            subtitle: Text('${settings.prayerLength} perc'),
+            subtitle: Text('${prefs.prayerLength.inMinutes} perc'),
             trailing: const Icon(Icons.edit),
             onTap: () {
               showDialog(
                 context: context,
                 builder: (context) {
-                  var length = settings.prayerLength;
+                  Duration length = prefs.prayerLength;
                   return AlertDialog(
                     title: const Text('Ima hossza'),
                     contentPadding: const EdgeInsets.fromLTRB(8, 32, 8, 0),
@@ -119,13 +122,14 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
                       children: [
                         StatefulBuilder(
                           builder: (context, setState) => Slider(
-                            value: length.toDouble(),
-                            min: widget.prayer.minTimeInMinutes.toDouble(),
+                            value: length.inMinutes.toDouble(),
+                            min: prayer.minTime.inMinutes.toDouble(),
                             max: 60,
-                            divisions: 60 - widget.prayer.minTimeInMinutes,
+                            divisions: 60 - prayer.minTime.inMinutes,
                             label: '$length perc',
-                            onChanged: (v) =>
-                                setState(() => length = v.toInt()),
+                            onChanged: (v) => setState(
+                              () => length = Duration(minutes: v.toInt()),
+                            ),
                           ),
                         ),
                       ],
@@ -136,9 +140,11 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
                         child: const Text('Mégsem'),
                       ),
                       TextButton(
-                        onPressed: () {
-                          settings.prayerLength = length;
-                          Navigator.pop(context);
+                        onPressed: () async {
+                          await prefs.setPrayerLength(length);
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                          }
                         },
                         child: const Text('Beállítás'),
                       ),
@@ -156,12 +162,21 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PrayerPage(prayer: widget.prayer),
-          ),
-        ),
+        onPressed: () async {
+          final steps = await context.read<Database>().prayersDao.prayerStepsOf(
+            prayer,
+          );
+          if (!context.mounted) {
+            return;
+          }
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  PrayerPage(data: (prayer: prayer, steps: steps)),
+            ),
+          );
+        },
         tooltip: 'Ima indítása',
         child: const Icon(Icons.play_arrow_rounded),
       ),
@@ -169,8 +184,58 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
   }
 }
 
-class MeditationFocusHint extends StatelessWidget {
-  MeditationFocusHint({super.key});
+class _DownloadVoiceButton extends StatefulWidget {
+  const _DownloadVoiceButton({required this.prayer, required this.voiceIndex});
+
+  final Prayer prayer;
+  final int voiceIndex;
+
+  @override
+  State<_DownloadVoiceButton> createState() => _DownloadVoiceButtonState();
+}
+
+class _DownloadVoiceButtonState extends State<_DownloadVoiceButton> {
+  bool _downloading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_downloading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12),
+        child: ListItemProgressIndicator(),
+      );
+    }
+    return IconButton(
+      icon: const Icon(Icons.file_download_outlined),
+      color: Theme.of(context).colorScheme.onSurface,
+      onPressed: () async {
+        setState(() => _downloading = true);
+        final steps = await context.read<Database>().prayersDao.prayerStepsOf(
+          widget.prayer,
+        );
+        if (!context.mounted) {
+          return;
+        }
+        if (steps.isEmpty) {
+          setState(() => _downloading = false);
+          return;
+        }
+        await context.read<SyncService>().downloadVoices(
+          voices: steps.map(
+            (step) => (name: step.voices[widget.voiceIndex], etag: null),
+          ),
+        );
+        if (!mounted) {
+          return;
+        }
+        setState(() => _downloading = false);
+      },
+    );
+  }
+}
+
+class _FocusHint extends StatelessWidget {
+  _FocusHint();
 
   // Using the shortcut's identifier is more reliable than its name,
   final _shortcutId = '58ff4546eaa9497a93fdf9635011e64d';
@@ -184,8 +249,8 @@ class MeditationFocusHint extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ValueListenableBuilder(
-      valueListenable: FocusStatus.authorizationStatus,
+    return Selector<FocusStatus, FocusAuthorizationStatus?>(
+      selector: (context, fs) => fs.authStatus,
       builder: (context, authStatus, _) {
         final colorScheme = theme.colorScheme;
 

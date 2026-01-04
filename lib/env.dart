@@ -19,6 +19,12 @@ abstract class Env {
   @EnviedField(optional: false)
   static const String serverMediaPathPrefix = _Env.serverMediaPathPrefix;
 
+  static String serverImagePath(String name) =>
+      '${Env.serverMediaPathPrefix}images/$name';
+
+  static String serverVoicePath(String name) =>
+      '${Env.serverMediaPathPrefix}voices/$name';
+
   @EnviedField()
   static const String? serverAppPath = _Env.serverAppPath;
 
