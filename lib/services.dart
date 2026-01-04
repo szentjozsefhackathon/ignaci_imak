@@ -1,7 +1,8 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart' show ChangeNotifier, kDebugMode;
+import 'package:flutter/foundation.dart'
+    show ChangeNotifier, kDebugMode, kIsWeb;
 import 'package:flutter/widgets.dart' show imageCache;
 import 'package:logging/logging.dart';
 import 'package:provider/provider.dart' show ChangeNotifierProxyProvider2;
@@ -95,6 +96,10 @@ class SyncService extends ChangeNotifier {
   int get downloadableVoices => _allVoices - _downloadedVoices;
 
   Future<void> updateStats() async {
+    if (kIsWeb) {
+      return;
+    }
+
     _allImages =
         await _db.managers.prayerGroups.count() +
         await _db.managers.prayers.count();
@@ -165,14 +170,18 @@ class SyncService extends ChangeNotifier {
 
   SyncStatus get _isStatusIdleOrUpdate {
     final v = _latestVersions;
-    if (v != null && (_prefs.versions?.isUpdateAvailable(v) ?? true)) {
+    if (!kIsWeb &&
+        v != null &&
+        (_prefs.versions?.isUpdateAvailable(v) ?? true)) {
       return SyncStatus.updateAvailable;
     }
     return SyncStatus.idle;
   }
 
   Future<bool> trySync({bool stopOnError = true, bool? withMedia}) async {
-    if (withMedia == null) {
+    if (kIsWeb) {
+      withMedia = false;
+    } else if (withMedia == null) {
       final c = await Connectivity().checkConnectivity();
       _log.fine(c);
       withMedia = !c.contains(ConnectivityResult.mobile);
