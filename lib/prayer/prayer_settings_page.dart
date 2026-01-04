@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart' show Selector;
 import 'package:universal_io/universal_io.dart' show Platform;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -30,13 +31,13 @@ class PrayerSettingsPage extends StatelessWidget {
           ),
           if (Platform.isAndroid)
             DndSwitchListTile(value: prefs.dnd, onChanged: prefs.setDnd),
-          ValueListenableBuilder<bool?>(
-            valueListenable: FocusStatus.status,
+          Selector<FocusStatus, bool?>(
+            selector: (context, fs) => fs.status,
             builder: (context, isFocused, _) {
               if (kIsWeb || !Platform.isIOS || isFocused == true) {
                 return const SizedBox.shrink();
               }
-              return MeditationFocusHint();
+              return _FocusHint();
             },
           ),
           if (prayer.voiceOptions.isEmpty)
@@ -174,8 +175,8 @@ class PrayerSettingsPage extends StatelessWidget {
   }
 }
 
-class MeditationFocusHint extends StatelessWidget {
-  MeditationFocusHint({super.key});
+class _FocusHint extends StatelessWidget {
+  _FocusHint();
 
   // Using the shortcut's identifier is more reliable than its name,
   final _shortcutId = '58ff4546eaa9497a93fdf9635011e64d';
@@ -189,8 +190,8 @@ class MeditationFocusHint extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ValueListenableBuilder(
-      valueListenable: FocusStatus.authorizationStatus,
+    return Selector<FocusStatus, FocusAuthorizationStatus?>(
+      selector: (context, fs) => fs.authStatus,
       builder: (context, authStatus, _) {
         final colorScheme = theme.colorScheme;
 

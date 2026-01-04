@@ -20,7 +20,7 @@ import 'routes.dart';
 import 'sentry.dart';
 import 'services.dart';
 import 'settings/dnd.dart' show DndProvider;
-import 'settings/focus_status.dart';
+import 'settings/focus_status.dart' show FocusStatusProvider;
 import 'theme.dart';
 
 void main() async {
@@ -41,10 +41,6 @@ void main() async {
   final location = tz.getLocation(localTz.identifier);
   tz.setLocalLocation(location);
   Logger.root.fine('Local timezone: $location');
-
-  if (!kIsWeb && Platform.isIOS) {
-    await FocusStatus.init();
-  }
 
   final prefs = Preferences(
     await SharedPreferencesWithCache.create(
@@ -71,6 +67,7 @@ class IgnacioPrayersApp extends StatelessWidget {
         NotificationsProvider(),
         DatabaseProvider(),
         SyncServiceProvider(),
+        if (Platform.isIOS) FocusStatusProvider(),
       ],
       DndProvider(),
     ],
