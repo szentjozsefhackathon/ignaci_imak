@@ -29,9 +29,7 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
   }
 
   Future<void> _trySync() async {
-    final success = await context.read<SyncService>().trySync(
-      stopOnError: true,
-    );
+    final success = await context.read<SyncService>().trySync();
     if (kIsWeb || !success || !mounted) {
       return;
     }
@@ -53,73 +51,76 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
         body = const Center(child: CircularProgressIndicator());
       } else {
         final items = snapshot.data!;
-        body = Consumer<SyncService>(
-          builder: (context, srv, grid) {
-            if (srv.status == SyncStatus.updateAvailable) {
-              return _buildSyncNotification(
-                grid!,
-                'A korábban letöltött adatok egy újabb verziója elérhető, szeretnéd most frissíteni ezeket?',
-                'Frissítés',
-              );
-            }
-            if (srv.downloadableImages > 0 || srv.downloadableVoices > 0) {
-              return _buildSyncNotification(
-                grid!,
-                'Le szeretnéd most tölteni az összes imához tartozó képet és hangot?\n\nKésőbb a beállítások oldalról is megteheted ezt.',
-                'Letöltés',
-              );
-            }
-            return grid!;
-          },
-          child: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              mainAxisExtent: 200,
-              mainAxisSpacing: 8,
-              maxCrossAxisExtent: 200,
-              crossAxisSpacing: 8,
-            ),
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return Card(
-                clipBehavior: Clip.antiAliasWithSaveLayer,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+        body = Column(
+          children: [
+            Selector<SyncService, SyncStatus>(
+              selector: (context, srv) => srv.status,
+              builder: (context, syncStatus, _) => switch (syncStatus) {
+                SyncStatus.updateAvailable => _buildSyncNotification(
+                  'A korábban letöltött adatok egy újabb verziója elérhető, szeretnéd most frissíteni ezeket?',
+                  'Frissítés',
+                  () => context.read<SyncService>().ignoreUpdate(),
                 ),
-                elevation: 4,
-                child: InkWell(
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    Routes.prayers(item),
-                    arguments: item,
-                  ),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(child: PrayerImage(name: item.image)),
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          color: Colors.black54,
-                          padding: const EdgeInsets.all(8),
-                          child: Text(
-                            item.title,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                SyncStatus.mediaNotComplete => _buildSyncNotification(
+                  'Le szeretnéd most tölteni az összes imához tartozó képet és hangot?\n\nKésőbb a beállítások oldalról is megteheted ezt.',
+                  'Letöltés',
+                  () => context.read<SyncService>().ignoreMediaNotComplete(),
+                ),
+                _ => const SizedBox(),
+              },
+            ),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  mainAxisExtent: 200,
+                  mainAxisSpacing: 8,
+                  maxCrossAxisExtent: 200,
+                  crossAxisSpacing: 8,
+                ),
+                padding: const EdgeInsets.all(16),
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return Card(
+                    clipBehavior: Clip.antiAliasWithSaveLayer,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 4,
+                    child: InkWell(
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        Routes.prayers(item),
+                        arguments: item,
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(child: PrayerImage(name: item.image)),
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              color: Colors.black54,
+                              padding: const EdgeInsets.all(8),
+                              child: Text(
+                                item.title,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         );
       }
       return Scaffold(
@@ -179,28 +180,20 @@ class _PrayerGroupsPageState extends State<PrayerGroupsPage> {
   );
 
   Widget _buildSyncNotification(
-    Widget content,
     String message,
     String positiveButton,
-  ) => Column(
-    children: [
-      MaterialBanner(
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => context.read<SyncService>().ignoreUpdate(),
-            child: const Text('Elrejtés'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pushNamed(context, Routes.dataSync),
-            child: Text(positiveButton),
-          ),
-        ],
-        backgroundColor: Colors.transparent,
-        dividerColor: Colors.transparent,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+    VoidCallback onHidePressed,
+  ) => MaterialBanner(
+    content: Text(message),
+    actions: [
+      TextButton(onPressed: onHidePressed, child: const Text('Elrejtés')),
+      TextButton(
+        onPressed: () => Navigator.pushNamed(context, Routes.dataSync),
+        child: Text(positiveButton),
       ),
-      Expanded(child: content),
     ],
+    backgroundColor: Colors.transparent,
+    dividerColor: Colors.transparent,
+    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
   );
 }

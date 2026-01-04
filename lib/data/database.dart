@@ -8,7 +8,7 @@ import 'dao.dart';
 import 'types.dart';
 
 export 'package:provider/provider.dart'
-    show ReadContext, WatchContext, Consumer;
+    show ReadContext, WatchContext, Consumer, Selector;
 
 export 'types.dart';
 

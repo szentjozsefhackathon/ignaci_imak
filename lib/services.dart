@@ -19,6 +19,7 @@ enum SyncStatus {
   versionCheck,
   updateAvailable,
   dataDownload,
+  mediaNotComplete,
   imageDownload,
   voiceDownload,
   delete,
@@ -65,15 +66,17 @@ class SyncService extends ChangeNotifier {
   SyncStatus _status = SyncStatus.idle;
   SyncStatus get status => _status;
 
-  void _setStatus(SyncStatus s) {
+  void _setStatus(SyncStatus s, {bool notify = true}) {
     if (s != _status) {
-      if (_status == SyncStatus.updateAvailable && s == SyncStatus.idle) {
+      if (_status != SyncStatus.idle && s == SyncStatus.idle) {
         _log.warning('$_status -> $s');
       } else {
         _log.fine('$_status -> $s');
       }
       _status = s;
-      notifyListeners();
+      if (notify) {
+        notifyListeners();
+      }
     }
   }
 
@@ -110,12 +113,22 @@ class SyncService extends ChangeNotifier {
     _log.fine(
       'Stats: $_allImages/$_downloadedImages image(s) and $_allVoices/$_downloadedVoices voice(s) downloaded',
     );
+
+    if (downloadableImages > 0 || downloadableVoices > 0) {
+      _setStatus(SyncStatus.mediaNotComplete, notify: false);
+    }
     notifyListeners();
   }
 
   void ignoreUpdate() {
     if (_status == SyncStatus.updateAvailable) {
       _latestVersions = _prefs.versions;
+      _setStatus(SyncStatus.idle);
+    }
+  }
+
+  void ignoreMediaNotComplete() {
+    if (_status == SyncStatus.mediaNotComplete) {
       _setStatus(SyncStatus.idle);
     }
   }
@@ -158,13 +171,13 @@ class SyncService extends ChangeNotifier {
     return SyncStatus.idle;
   }
 
-  Future<bool> trySync({required bool stopOnError, bool? withMedia}) async {
+  Future<bool> trySync({bool stopOnError = true, bool? withMedia}) async {
     if (withMedia == null) {
       final c = await Connectivity().checkConnectivity();
       _log.fine(c);
       withMedia = !c.contains(ConnectivityResult.mobile);
     }
-    if (!await checkForUpdates()) {
+    if (!await _checkForUpdates()) {
       return false;
     }
     bool success = true;
@@ -193,19 +206,27 @@ class SyncService extends ChangeNotifier {
     return success;
   }
 
-  Future<bool> checkForUpdates() async {
+  Future<void> checkForUpdates() async {
+    if (!await _checkForUpdates()) {
+      return;
+    }
+    await _updateStats();
+  }
+
+  Future<bool> _checkForUpdates() async {
     switch (_status) {
       case SyncStatus.idle:
       case SyncStatus.updateAvailable:
+      case SyncStatus.mediaNotComplete:
         // continue
         break;
       default:
         _log.warning('Cannot check for updates in $_status');
         return false;
     }
-    _setStatus(SyncStatus.versionCheck);
     bool success = false;
-    SyncStatus finalStatus = SyncStatus.idle;
+    SyncStatus finalStatus = _status;
+    _setStatus(SyncStatus.versionCheck);
     try {
       final response = await _get<Json>(Env.serverCheckVersionsPath);
       if (response?.data case final Json data
@@ -233,6 +254,7 @@ class SyncService extends ChangeNotifier {
     switch (_status) {
       case SyncStatus.idle:
       case SyncStatus.updateAvailable:
+      case SyncStatus.mediaNotComplete:
         // continue
         break;
       default:
@@ -244,9 +266,9 @@ class SyncService extends ChangeNotifier {
       _log.warning('Cannot download data without server versions');
       return false;
     }
-    _setStatus(SyncStatus.dataDownload);
     bool success = false;
-    SyncStatus finalStatus = SyncStatus.idle;
+    SyncStatus finalStatus = _status;
+    _setStatus(SyncStatus.dataDownload);
     try {
       final response = await _get<List>(Env.serverDownloadDataPath);
       if (response?.data case final List data
@@ -352,6 +374,7 @@ class SyncService extends ChangeNotifier {
     switch (_status) {
       case SyncStatus.idle:
       case SyncStatus.updateAvailable:
+      case SyncStatus.mediaNotComplete:
         // continue
         break;
       default:
@@ -363,9 +386,9 @@ class SyncService extends ChangeNotifier {
       _log.warning('Cannot download images without server versions');
       return false;
     }
-    _setStatus(SyncStatus.imageDownload);
     bool success = true;
-    SyncStatus finalStatus = SyncStatus.idle;
+    SyncStatus finalStatus = _status;
+    _setStatus(SyncStatus.imageDownload);
     try {
       if (images == null) {
         final etagMap = Map.fromEntries(
@@ -413,6 +436,7 @@ class SyncService extends ChangeNotifier {
     switch (_status) {
       case SyncStatus.idle:
       case SyncStatus.updateAvailable:
+      case SyncStatus.mediaNotComplete:
         // continue
         break;
       default:
@@ -457,6 +481,7 @@ class SyncService extends ChangeNotifier {
     switch (_status) {
       case SyncStatus.idle:
       case SyncStatus.updateAvailable:
+      case SyncStatus.mediaNotComplete:
         // continue
         break;
       default:
@@ -468,9 +493,9 @@ class SyncService extends ChangeNotifier {
       _log.warning('Cannot download voices without server versions');
       return false;
     }
-    _setStatus(SyncStatus.voiceDownload);
     bool success = true;
-    SyncStatus finalStatus = SyncStatus.idle;
+    SyncStatus finalStatus = _status;
+    _setStatus(SyncStatus.voiceDownload);
     try {
       if (voices == null) {
         final etagMap = Map.fromEntries(
@@ -518,6 +543,7 @@ class SyncService extends ChangeNotifier {
     switch (_status) {
       case SyncStatus.idle:
       case SyncStatus.updateAvailable:
+      case SyncStatus.mediaNotComplete:
         // continue
         break;
       default:

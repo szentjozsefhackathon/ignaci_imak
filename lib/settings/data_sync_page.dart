@@ -76,7 +76,8 @@ class DataSyncPage extends StatelessWidget {
               Selector<SyncService, bool>(
                 selector: (context, srv) =>
                     (srv.status == SyncStatus.idle ||
-                        srv.status == SyncStatus.updateAvailable) &&
+                        srv.status == SyncStatus.updateAvailable ||
+                        srv.status == SyncStatus.mediaNotComplete) &&
                     srv.latestVersions != null,
                 builder: (context, canDelete, _) => ListTile(
                   title: const Text('Adatok törlése'),
