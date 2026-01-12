@@ -82,7 +82,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   json_serializable: ^6.11.3
-  sentry_dart_plugin: ^3.2.0
+  sentry_dart_plugin: ^3.2.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
