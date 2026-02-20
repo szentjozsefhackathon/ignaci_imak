@@ -163,7 +163,7 @@ class SyncService extends ChangeNotifier {
   }) => _client.get<T>(
     path,
     options: Options(
-      headers: {if (etag != null) HttpHeaders.ifNoneMatchHeader: etag},
+      headers: {HttpHeaders.ifNoneMatchHeader: ?etag},
       responseType: responseType,
     ),
   );
