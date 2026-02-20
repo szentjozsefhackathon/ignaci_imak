@@ -67,7 +67,7 @@ class Notifications with ChangeNotifier {
     }
 
     final initialized = await _n.initialize(
-      const InitializationSettings(
+      settings: const InitializationSettings(
         android: AndroidInitializationSettings(
           '@drawable/ic_stat_notification',
         ),
@@ -176,11 +176,11 @@ class Notifications with ChangeNotifier {
     final pending = await scheduledNotifications;
     final maxId = pending.map((n) => n.id).maxOrNull ?? 0;
     await _n.zonedSchedule(
-      maxId + 1,
-      'Ignáci ima',
-      'Itt az ideje egy kicsit elcsendesedni 🙏',
-      dateTime,
-      _notificationDetails,
+      id: maxId + 1,
+      title: 'Ignáci ima',
+      body: 'Itt az ideje egy kicsit elcsendesedni 🙏',
+      scheduledDate: dateTime,
+      notificationDetails: _notificationDetails,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: repeat,
       payload: '${repeat?.name ?? ''}::${dateTime.toIso8601String()}',
@@ -192,15 +192,15 @@ class Notifications with ChangeNotifier {
     final pending = await scheduledNotifications;
     final maxId = pending.map((n) => n.id).maxOrNull ?? 0;
     await _n.show(
-      maxId + 1,
-      'Ignáci ima',
-      'Ez egy teszt értesítés',
-      _notificationDetails,
+      id: maxId + 1,
+      title: 'Ignáci ima',
+      body: 'Ez egy teszt értesítés',
+      notificationDetails: _notificationDetails,
     );
   }
 
   Future<void> cancel(int id) async {
-    await _n.cancel(id);
+    await _n.cancel(id: id);
     notifyListeners();
   }
 
