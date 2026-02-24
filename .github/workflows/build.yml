@@ -1,136 +1,133 @@
-name: Build & release app
+name: Build & Release App
 
 on:
-  workflow_dispatch: # Manual trigger only
+  workflow_dispatch: # Manual trigger
+
+# Required for pushing to GitHub Container Registry (GHCR)
+permissions:
+  contents: write
+  packages: write
 
 jobs:
-  build:
-    name: Build & release app
-    runs-on: macos-latest
-    environment: teszt
-
+  # --- JOB 1: Web & Docker (Runs on Linux - Fast & Cheap) ---
+  build-web-docker:
+    name: Build Web & Push Docker
+    runs-on: ubuntu-latest
     steps:
-      - name: Check if branch is main
-        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
-        run: |
-          echo "This workflow should not be triggered with workflow_dispatch on a branch other than main"
-          exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up java
-        uses: actions/setup-java@v4
-        with:
-          distribution: oracle
-          java-version: 17
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
-
-      - name: Create .env file
-        uses: jakubcieslik99/secrets-vars-to-env-file-action@main
-        with:
-          secrets: ${{ toJSON(secrets) }}
-          vars: ${{ toJSON(vars) }}
-          exclude: FLUTTER_ROOT, PUB_CACHE
-
       - name: Install dependencies
-        run: flutter pub get
-      - name: Run build_runner
-        run: dart run build_runner build
-      - name: Run flutter_launcher_icons
-        run: dart run flutter_launcher_icons
+        run: |
+          flutter pub get
+          dart run build_runner build --delete-conflicting-outputs
 
-      - name: Decode keystore
+      - name: Build Flutter Web
+        run: |
+          # Custom scripts for your sqlite/drift setup
+          dart tools/download_sqlite3_wasm.dart
+          flutter build web --release --base-href="/flutter/"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          # This should point to your Nginx Dockerfile in the flutter-web folder
+          file: ./web/Dockerfile.prod 
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/ignacio-flutter-web:latest
+            ghcr.io/${{ github.repository_owner }}/ignacio-flutter-web:${{ github.sha }}
+          # This LINKs the package to your repo sidebar automatically
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+  # --- JOB 2: Android (Runs on Linux) ---
+  build-android:
+    name: Build Android Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'oracle'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Decode keystore & Create properties
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
-      - name: Create key.properties
-        run: |
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=keystore.jks" >> android/key.properties
 
       - name: Build App Bundle
-        run: |
-          flutter build appbundle --obfuscate --split-debug-info=build/symbols --extra-gen-snapshot-options=--save-obfuscation-map=build/mapping.json
-          dart run sentry_dart_plugin
-      - name: Build IPA
-        run: flutter build ipa --no-codesign
-      - name: Build web app
-        run: |
-          dart tools/download_sqlite3_wasm.dart
-          dart compile js -O4 web/drift_worker.dart --output web/drift_worker.js && rm web/drift_worker.dart web/drift_worker.js.deps
-          flutter build web --base-href="/flutter/" --source-maps
+        run: flutter build appbundle --release
 
-      - name: Compress iOS output
+      - name: Upload Android Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release
+          path: build/app/outputs/bundle/release/app-release.aab
+
+  # --- JOB 3: iOS (The only one that needs macOS) ---
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build IPA (No Codesign)
+        run: flutter build ipa --no-codesign
+
+      - name: Compress and Upload iOS Artifact
         run: |
           cd build
           tar -czf ios_build.tar.gz ios
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
-          name: Releases
-          path: |
-            build/app/outputs/bundle/release/app-release.aab
-            build/ios_build.tar.gz
+          name: ios-release
+          path: build/ios_build.tar.gz
 
-      - name: Extract version from pubspec.yaml
-        id: extract_version
-        run: |
-          version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
-          echo "VERSION=$version" >> $GITHUB_ENV
-      - name: Check if tag exists
-        id: check_tag
-        run: |
-          if git rev-parse "v${{ env.VERSION }}" >/dev/null 2>&1; then
-            echo "TAG_EXISTS=true" >> $GITHUB_ENV
-          else
-            echo "TAG_EXISTS=false" >> $GITHUB_ENV
-          fi
-      - name: Modify tag if exists
-        if: env.TAG_EXISTS == 'true'
-        id: modify_tag
-        run: |
-          new_version="${{ env.VERSION }}-build-${{ github.run_number }}"
-          echo "VERSION=$new_version" >> $GITHUB_ENV
-
-      - name: Create release
+  # --- JOB 4: Create GitHub Release (Runs after others finish) ---
+  create-release:
+    name: Finalize GitHub Release
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        
+      - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/bundle/release/app-release.aab,build/ios_build.tar.gz"
-          tag: v${{ env.VERSION }}
-          token: ${{ secrets.TOKEN }}
-
-      - name: Log in to GitHub container registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set up Docker buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Push web app image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./build/web
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/ignacio-flutter-web:latest
-            ghcr.io/${{ github.repository_owner }}/ignacio-flutter-web:${{ github.sha }}
-      - name: Verify web app image
-        run: |
-          echo "Docker image has been pushed to:"
-          echo "ghcr.io/${{ github.repository_owner }}/ignacio-flutter-web:latest"
-          echo "ghcr.io/${{ github.repository_owner }}/ignacio-flutter-web:${{ github.sha }}"
+          artifacts: "android-release/*.aab,ios-release/*.tar.gz"
+          tag: "v0.0.${{ github.run_number }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
