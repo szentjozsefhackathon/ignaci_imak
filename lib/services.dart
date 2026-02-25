@@ -170,8 +170,7 @@ class SyncService extends ChangeNotifier {
 
   SyncStatus get _isStatusIdleOrUpdate {
     final v = _latestVersions;
-    if (!kIsWeb &&
-        v != null &&
+    if (v != null &&
         (_prefs.versions?.isUpdateAvailable(v) ?? true)) {
       return SyncStatus.updateAvailable;
     }
