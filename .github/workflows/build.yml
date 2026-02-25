@@ -13,6 +13,7 @@ jobs:
   build-web-docker:
     name: Build Web & Push Docker
     runs-on: ubuntu-latest
+    environment: teszt 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,6 +24,14 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Create .env file
+        uses: jakubcieslik99/secrets-vars-to-env-file-action@main
+        with:
+          # This maps all your GitHub Secrets and Vars into the .env file
+          secrets: ${{ toJSON(secrets) }}
+          vars: ${{ toJSON(vars) }}
+          # Exclude internal GitHub noise
+          exclude: FLUTTER_ROOT, PUB_CACHE, GITHUB_TOKEN
       - name: Install dependencies
         run: |
           flutter pub get
@@ -39,7 +48,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHRC_TOKEN }}
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
@@ -73,7 +82,14 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-
+      - name: Create .env file
+        uses: jakubcieslik99/secrets-vars-to-env-file-action@main
+        with:
+          # This maps all your GitHub Secrets and Vars into the .env file
+          secrets: ${{ toJSON(secrets) }}
+          vars: ${{ toJSON(vars) }}
+          # Exclude internal GitHub noise
+          exclude: FLUTTER_ROOT, PUB_CACHE, GITHUB_TOKEN
       - name: Decode keystore & Create properties
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
@@ -103,6 +119,14 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+      - name: Create .env file
+        uses: jakubcieslik99/secrets-vars-to-env-file-action@main
+        with:
+          # This maps all your GitHub Secrets and Vars into the .env file
+          secrets: ${{ toJSON(secrets) }}
+          vars: ${{ toJSON(vars) }}
+          # Exclude internal GitHub noise
+          exclude: FLUTTER_ROOT, PUB_CACHE, GITHUB_TOKEN
 
       - name: Build IPA (No Codesign)
         run: flutter build ipa --no-codesign
@@ -130,4 +154,4 @@ jobs:
         with:
           artifacts: "android-release/*.aab,ios-release/*.tar.gz"
           tag: "v0.0.${{ github.run_number }}"
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GHRC_TOKEN }}
