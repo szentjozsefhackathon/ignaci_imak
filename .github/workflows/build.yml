@@ -69,6 +69,7 @@ jobs:
   build-android:
     name: Build Android Bundle
     runs-on: ubuntu-latest
+    environment: teszt 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -119,6 +120,7 @@ jobs:
   build-ios:
     name: Build iOS IPA
     runs-on: macos-latest
+    environment: teszt
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -158,6 +160,7 @@ jobs:
     name: Finalize GitHub Release
     needs: [build-android, build-ios]
     runs-on: ubuntu-latest
+    environment: teszt 
     steps:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
