@@ -31,7 +31,7 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
           # Exclude internal GitHub noise
-          exclude: FLUTTER_ROOT, PUB_CACHE, GITHUB_TOKEN
+          exclude: FLUTTER_ROOT, PUB_CACHE, GHRC_TOKEN
       - name: Install dependencies
         run: |
           flutter pub get
@@ -89,7 +89,12 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
           # Exclude internal GitHub noise
-          exclude: FLUTTER_ROOT, PUB_CACHE, GITHUB_TOKEN
+          exclude: FLUTTER_ROOT, PUB_CACHE, GHRC_TOKEN
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          dart run build_runner build --delete-conflicting-outputs
       - name: Decode keystore & Create properties
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
@@ -126,8 +131,11 @@ jobs:
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
           # Exclude internal GitHub noise
-          exclude: FLUTTER_ROOT, PUB_CACHE, GITHUB_TOKEN
-
+          exclude: FLUTTER_ROOT, PUB_CACHE, GHRC_TOKEN
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          dart run build_runner build --delete-conflicting-outputs
       - name: Build IPA (No Codesign)
         run: flutter build ipa --no-codesign
 
