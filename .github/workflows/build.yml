@@ -36,6 +36,7 @@ jobs:
         run: |
           flutter pub get
           dart run build_runner build --delete-conflicting-outputs
+          dart run flutter_launcher_icons
 
       - name: Build Flutter Web
         run: |
@@ -95,6 +96,8 @@ jobs:
         run: |
           flutter pub get
           dart run build_runner build --delete-conflicting-outputs
+          dart run flutter_launcher_icons
+          
       - name: Decode keystore & Create properties
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
@@ -136,6 +139,8 @@ jobs:
         run: |
           flutter pub get
           dart run build_runner build --delete-conflicting-outputs
+          dart run flutter_launcher_icons
+          
       - name: Build IPA (No Codesign)
         run: flutter build ipa --no-codesign
 
