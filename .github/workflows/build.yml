@@ -42,6 +42,7 @@ jobs:
         run: |
           # Custom scripts for your sqlite/drift setup
           dart tools/download_sqlite3_wasm.dart
+          dart compile js -O4 web/drift_worker.dart --output web/drift_worker.js
           flutter build web --release --base-href="/flutter/"
 
       - name: Log in to GHCR
