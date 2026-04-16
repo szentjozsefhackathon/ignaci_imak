@@ -104,12 +104,12 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       } else {
         _remainingTime -= timerPeriod;
         if (_prefs.autoPageTurn) {
-          for (final time in _nextPageTimes) {
-            if (time == _remainingTime) {
-              final pageIndex = _nextPageTimes.indexOf(time);
-              // we're not going back
-              if (pageIndex > _currentPage) {
-                _updateCurrentPageIndex(pageIndex);
+          for (int i = 0; i < _nextPageTimes.length; i++) {
+            if (_nextPageTimes[i] == _remainingTime) {
+              // At i target time we should go to (i + 1) page!
+              final targetPage = i + 1; 
+              if (targetPage > _currentPage && targetPage < widget.data.steps.length) {
+                _updateCurrentPageIndex(targetPage);
                 _vibrateIfNoSound();
               }
               break;
