@@ -1,19 +1,33 @@
+import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
+import 'package:collection/collection.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart'
     show ChangeNotifier, kDebugMode, kIsWeb;
+import 'package:flutter/widgets.dart' show BuildContext;
 import 'package:flutter/widgets.dart' show imageCache;
+import 'package:just_audio/just_audio.dart';
 import 'package:logging/logging.dart';
-import 'package:provider/provider.dart' show ChangeNotifierProxyProvider2;
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart'
+    show ChangeNotifierProxyProvider2, ChangeNotifierProvider;
 import 'package:sentry_dio/sentry_dio.dart';
 import 'package:sentry_flutter/sentry_flutter.dart' show SentryStatusCode;
+import 'package:universal_io/io.dart' show File;
 import 'package:universal_io/universal_io.dart' show HttpHeaders, HttpStatus;
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'data/database.dart';
 import 'data/preferences.dart';
 import 'data/versions.dart';
 import 'env.dart';
+import 'notifications.dart' show kNotificationIcon, kNotificationChannelBase;
+import 'theme.dart' show kThemeSeedColor;
+
+export 'package:audio_session/audio_session.dart';
 
 enum SyncStatus {
   idle,
@@ -575,4 +589,281 @@ class SyncServiceProvider
           .._prefs = prefs
           .._db = db,
       );
+}
+
+// https://pub.dev/packages/audio_service
+
+// https://github.com/yringler/inside-app/blob/master/just_audio_handlers/lib/src/handler_just_audio.dart
+// https://suragch.medium.com/background-audio-in-flutter-with-audio-service-and-just-audio-3cce17b4a7d
+// https://pub.dev/packages/just_audio_background
+
+class AudioHandler extends BaseAudioHandler with ChangeNotifier {
+  AudioHandler() : _player = AudioPlayer() {
+    _player.playbackEventStream.map(_transformEvent).pipe(playbackState);
+    playbackState.listen((state) async {
+      final queueLength = queue.valueOrNull?.length;
+      if (queueLength != null &&
+          currentIndex == queueLength - 1 &&
+          _player.processingState == ProcessingState.completed) {
+        await stop();
+        await initSession(
+          const AudioSessionConfiguration.music().copyWith(
+            androidAudioAttributes: const AndroidAudioAttributes(
+              contentType: AndroidAudioContentType.music,
+              usage: AndroidAudioUsage.alarm,
+            ),
+            androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+          ),
+        );
+        final finishPlayer = AudioPlayer();
+        await finishPlayer.setAudioSource(AudioSource.asset('vege.mp3'));
+        await finishPlayer.play();
+        _isFinished = true;
+      }
+      await WakelockPlus.toggle(enable: state.playing);
+      notifyListeners();
+    });
+    mediaItem.listen((item) => notifyListeners());
+  }
+
+  final AudioPlayer _player;
+  static const _kTempFilePrefix = '.ignaciima_';
+
+  Future<void> initSession(AudioSessionConfiguration cfg) async {
+    final session = await AudioSession.instance;
+    await session.configure(cfg);
+  }
+
+  @override
+  Future<void> play() => _player.play();
+
+  @override
+  Future<void> pause() => _player.pause();
+
+  bool get isPlaying => playbackState.valueOrNull?.playing ?? false;
+
+  bool _isFinished = true;
+  bool get isFinished => _isFinished;
+
+  Duration? get totalDuration {
+    final items = queue.valueOrNull;
+    if (items == null) {
+      return null;
+    }
+    return items
+        .map((i) => i.duration)
+        .whereType<Duration>()
+        .reduce((t, d) => t + d);
+  }
+
+  Duration? get playedDuration {
+    final index = currentIndex;
+    final items = queue.valueOrNull;
+    if (index == null || items == null) {
+      return null;
+    }
+    return items
+        .mapIndexed((idx, i) {
+          if (idx < index) {
+            return i.duration;
+          }
+          if (idx == index) {
+            return playbackState.valueOrNull?.position;
+          }
+          return null;
+        })
+        .whereType<Duration>()
+        .reduce((t, d) => t + d);
+  }
+
+  Duration? get remainingTime {
+    final total = totalDuration;
+    if (total == null) {
+      return null;
+    }
+    final played = playedDuration;
+    if (played == null) {
+      return null;
+    }
+    return total - played;
+  }
+
+  MediaItem? get currentItem => mediaItem.valueOrNull;
+
+  int? get currentIndex => playbackState.valueOrNull?.queueIndex;
+
+  @override
+  Future<void> stop() async {
+    await _player.stop();
+    await super.stop();
+    await _cleanupTempFiles();
+  }
+
+  Future<void> _cleanupTempFiles() async {
+    final tempDir = await getTemporaryDirectory();
+    final tempFiles = tempDir
+        .list(followLinks: false)
+        .where(
+          (e) =>
+              e is File &&
+              path
+                  .basenameWithoutExtension(e.path)
+                  .startsWith(_kTempFilePrefix),
+        );
+    await for (final f in tempFiles) {
+      await f.delete();
+    }
+  }
+
+  Future<void> setMuted(bool muted) => _player.setVolume(muted ? 0 : 1);
+
+  Future<void> loadPrayerVoices(
+    BuildContext context,
+    PrayerGroup group,
+    PrayerWithSteps p,
+    Duration totalDuration,
+    int voiceIndex,
+  ) async {
+    await _cleanupTempFiles();
+    if (!context.mounted) {
+      return;
+    }
+
+    final stepDurations = <Duration>[];
+    Duration totalFixTime = Duration.zero;
+    Duration totalFlexTime = Duration.zero;
+    for (final step in p.steps) {
+      if (step.type == PrayerStepType.fix) {
+        totalFixTime += step.time;
+      } else if (step.type == PrayerStepType.flex) {
+        totalFlexTime += step.time;
+      }
+    }
+    final totalTimeForFlex = totalDuration - totalFixTime;
+    Duration remainingTime = totalDuration;
+    for (final step in p.steps) {
+      if (step.type == PrayerStepType.fix) {
+        remainingTime -= step.time;
+      } else if (step.type == PrayerStepType.flex) {
+        remainingTime -= Duration(
+          seconds:
+              totalTimeForFlex.inSeconds *
+              step.time.inSeconds ~/
+              totalFlexTime.inSeconds,
+        );
+      }
+      stepDurations.add(remainingTime);
+    }
+    stepDurations.removeLast();
+
+    final db = context.read<Database>();
+    final imageUri = kIsWeb
+        ? Env.serverUri.replace(path: Env.serverImagePath(p.prayer.image))
+        : await db.mediaDao.imageByName(p.prayer.image).then((image) async {
+            final tempDir = await getTemporaryDirectory();
+            final file = File(
+              '${tempDir.path}/$_kTempFilePrefix${p.prayer.image}',
+            );
+            if (!file.existsSync()) {
+              await file.writeAsBytes(image.data);
+            }
+            return file.uri;
+          });
+    final mediaItems = p.steps
+        .mapIndexed((index, step) {
+          final name = step.voices[voiceIndex];
+          return MediaItem(
+            id: name,
+            album: group.title,
+            title: p.prayer.title,
+            artUri: imageUri,
+            duration: stepDurations[index],
+          );
+        })
+        .toList(growable: false);
+    final audioSources = <AudioSource>[];
+    for (final m in mediaItems) {
+      final Uri voiceUri;
+      if (kIsWeb) {
+        voiceUri = Env.serverUri.replace(path: Env.serverImagePath(m.id));
+      } else {
+        voiceUri = await db.mediaDao.voiceByName(m.id).then((voice) async {
+          final tempDir = await getTemporaryDirectory();
+          final file = File('${tempDir.path}/$_kTempFilePrefix${m.id}');
+          if (!file.existsSync()) {
+            await file.writeAsBytes(voice.data);
+          }
+          return file.uri;
+        });
+      }
+      audioSources.add(AudioSource.uri(voiceUri));
+    }
+
+    _isFinished = false;
+    queue.add(mediaItems);
+    await _player.setAudioSources(audioSources);
+  }
+
+  @override
+  Future<void> skipToPrevious() async {
+    if (_player.previousIndex case final int previousIndex) {
+      await skipToQueueItem(previousIndex);
+    }
+  }
+
+  @override
+  Future<void> skipToNext() async {
+    if (_player.nextIndex case final int nextIndex) {
+      await skipToQueueItem(nextIndex);
+    }
+  }
+
+  @override
+  Future<void> skipToQueueItem(int index) async {
+    playbackState.add(playbackState.value.copyWith(queueIndex: index));
+    mediaItem.add(queue.value[index]);
+    await _player.seek(Duration.zero, index: index);
+    await super.skipToQueueItem(index);
+  }
+
+  PlaybackState _transformEvent(PlaybackEvent event) => PlaybackState(
+    controls: [
+      MediaControl.skipToPrevious,
+      if (_player.playing) MediaControl.pause else MediaControl.play,
+      MediaControl.stop,
+      MediaControl.skipToNext,
+    ],
+    androidCompactActionIndices: const [0, 1, 3],
+    processingState: switch (_player.processingState) {
+      ProcessingState.idle => AudioProcessingState.idle,
+      ProcessingState.loading => AudioProcessingState.loading,
+      ProcessingState.buffering => AudioProcessingState.buffering,
+      ProcessingState.ready => AudioProcessingState.ready,
+      ProcessingState.completed => AudioProcessingState.idle,
+    },
+    playing:
+        _player.playing && _player.processingState != ProcessingState.completed,
+    updatePosition: _player.position,
+    bufferedPosition: _player.bufferedPosition,
+    speed: _player.speed,
+    queueIndex: event.currentIndex,
+  );
+}
+
+class AudioHandlerProvider extends ChangeNotifierProvider<AudioHandler> {
+  AudioHandlerProvider({super.key, required super.value}) : super.value();
+
+  static Future<AudioHandler>
+  createHandler() => AudioService.init<AudioHandler>(
+    builder: () => AudioHandler(),
+    config: const AudioServiceConfig(
+      androidNotificationIcon: kNotificationIcon,
+      notificationColor: kThemeSeedColor,
+      androidNotificationOngoing: true,
+      androidNotificationChannelId: '$kNotificationChannelBase.ima',
+      androidNotificationChannelName: 'Ima értesítés',
+      androidNotificationChannelDescription:
+          'Az ima elindítása alatt megjelenő értesítés, amivel az alkalmazás háttérbe kerülése esetén és a lezárt képernyőről is vezérelhető marad.',
+    ),
+  );
 }

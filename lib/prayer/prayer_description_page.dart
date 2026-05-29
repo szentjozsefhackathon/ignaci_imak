@@ -8,12 +8,10 @@ import 'prayer_text.dart';
 class PrayerDescriptionPage extends StatelessWidget {
   const PrayerDescriptionPage({
     super.key,
-    required this.group,
     required this.prayer,
   });
 
-  final PrayerGroup group;
-  final Prayer prayer;
+  final PrayerWithGroup prayer;
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +21,8 @@ class PrayerDescriptionPage extends StatelessWidget {
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           PrayerAppBar.prayer(
-            group: group,
-            prayer: prayer,
+            group: prayer.group,
+            prayer: prayer.prayer,
             options: appBarOptions,
           ),
         ],
@@ -36,7 +34,7 @@ class PrayerDescriptionPage extends StatelessWidget {
             kMinInteractiveDimension * 2,
           ),
           child: PrayerText(
-            prayer.description,
+            prayer.prayer.description,
             minFontSize: PrayerText.kDefaultFontSize,
             padding: EdgeInsets.zero,
           ),

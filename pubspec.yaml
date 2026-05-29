@@ -30,6 +30,8 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   app_settings: ^7.0.0
+  audio_service: ^0.18.18
+  audio_session: any
   auto_size_text: ^3.0.0
   collection: ^1.16.0
   connectivity_plus: ^7.0.0

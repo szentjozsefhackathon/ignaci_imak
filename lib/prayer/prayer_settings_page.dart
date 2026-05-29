@@ -16,14 +16,14 @@ import 'sync.dart';
 class PrayerSettingsPage extends StatelessWidget {
   const PrayerSettingsPage({super.key, required this.prayer});
 
-  final Prayer prayer;
+  final PrayerWithGroup prayer;
 
   @override
   Widget build(BuildContext context) {
     final prefs = context.watch<Preferences>();
 
     return Scaffold(
-      appBar: AppBar(title: Text(prayer.title)),
+      appBar: AppBar(title: Text(prayer.prayer.title)),
       body: ListView(
         children: [
           SwitchListTile(
@@ -43,7 +43,7 @@ class PrayerSettingsPage extends StatelessWidget {
                 return _FocusHint();
               },
             ),
-          if (prayer.voiceOptions.isEmpty)
+          if (prayer.prayer.voiceOptions.isEmpty)
             const SwitchListTile(
               title: Text('Hang'),
               subtitle: Text('Nincs ehhez az imához'),
@@ -53,7 +53,7 @@ class PrayerSettingsPage extends StatelessWidget {
           else
             StreamBuilder(
               stream: context.read<Database>().mediaDao.watchVoiceOptionsOf(
-                prayer,
+                prayer.prayer,
               ),
               builder: (context, snapshot) {
                 final data = snapshot.data;
@@ -83,7 +83,10 @@ class PrayerSettingsPage extends StatelessWidget {
                             ? prefs.setPrayerSoundEnabled
                             : null,
                       ),
-                      ...prayer.voiceOptions.mapIndexed((voiceIndex, voice) {
+                      ...prayer.prayer.voiceOptions.mapIndexed((
+                        voiceIndex,
+                        voice,
+                      ) {
                         final available = kIsWeb || data[voice]!;
                         return RadioListTile(
                           title: Text(voice),
@@ -95,7 +98,7 @@ class PrayerSettingsPage extends StatelessWidget {
                           secondary: available || !prefs.prayerSoundEnabled
                               ? null
                               : _DownloadVoiceButton(
-                                  prayer: prayer,
+                                  prayer: prayer.prayer,
                                   voiceIndex: voiceIndex,
                                 ),
                         );
@@ -123,9 +126,9 @@ class PrayerSettingsPage extends StatelessWidget {
                         StatefulBuilder(
                           builder: (context, setState) => Slider(
                             value: length.inMinutes.toDouble(),
-                            min: prayer.minTime.inMinutes.toDouble(),
+                            min: prayer.prayer.minTime.inMinutes.toDouble(),
                             max: 60,
-                            divisions: 60 - prayer.minTime.inMinutes,
+                            divisions: 60 - prayer.prayer.minTime.inMinutes,
                             label: '$length perc',
                             onChanged: (v) => setState(
                               () => length = Duration(minutes: v.toInt()),
@@ -164,7 +167,7 @@ class PrayerSettingsPage extends StatelessWidget {
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final steps = await context.read<Database>().prayersDao.prayerStepsOf(
-            prayer,
+            prayer.prayer,
           );
           if (!context.mounted) {
             return;
@@ -172,8 +175,10 @@ class PrayerSettingsPage extends StatelessWidget {
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) =>
-                  PrayerPage(data: (prayer: prayer, steps: steps)),
+              builder: (context) => PrayerPage(
+                group: prayer.group,
+                prayer: (prayer: prayer.prayer, steps: steps),
+              ),
             ),
           );
         },

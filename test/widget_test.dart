@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ignaci_imak/data/preferences.dart';
 
 import 'package:ignaci_imak/main.dart';
+import 'package:ignaci_imak/services.dart' show AudioHandlerProvider;
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
@@ -18,8 +19,11 @@ void main() {
         cacheOptions: const SharedPreferencesWithCacheOptions(),
       ),
     );
+    final audioHandler = await AudioHandlerProvider.createHandler();
     // Build our app and trigger a frame.
-    await tester.pumpWidget(IgnacioPrayersApp(prefs: prefs));
+    await tester.pumpWidget(
+      IgnacioPrayersApp(prefs: prefs, audioHandler: audioHandler),
+    );
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);
