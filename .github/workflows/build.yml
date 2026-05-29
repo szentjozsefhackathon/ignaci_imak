@@ -19,10 +19,10 @@ jobs:
   build-web-docker:
     name: Build Web & Push Docker
     runs-on: ubuntu-latest
-    environment: teszt 
+    environment: teszt
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -63,7 +63,7 @@ jobs:
         with:
           context: .
           # This should point to your Nginx Dockerfile in the flutter-web folder
-          file: ./web/Dockerfile.prod 
+          file: ./web/Dockerfile.prod
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/ignacio-flutter-web:latest
@@ -76,7 +76,7 @@ jobs:
   build-android:
     name: Build Android Bundle
     runs-on: ubuntu-latest
-    environment: teszt 
+    environment: teszt
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -105,7 +105,7 @@ jobs:
           flutter pub get
           dart run build_runner build --delete-conflicting-outputs
           dart run flutter_launcher_icons
-          
+
       - name: Decode keystore & Create properties
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
@@ -149,7 +149,7 @@ jobs:
           flutter pub get
           dart run build_runner build --delete-conflicting-outputs
           dart run flutter_launcher_icons
-          
+
       - name: Build IPA (No Codesign)
         run: flutter build ipa --no-codesign
 
@@ -157,7 +157,7 @@ jobs:
         run: |
           cd build
           tar -czf ios_build.tar.gz ios
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ios-release
           path: build/ios_build.tar.gz
@@ -167,11 +167,11 @@ jobs:
     name: Finalize GitHub Release
     needs: [build-android, build-ios]
     runs-on: ubuntu-latest
-    environment: teszt 
+    environment: teszt
     steps:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
-        
+
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
