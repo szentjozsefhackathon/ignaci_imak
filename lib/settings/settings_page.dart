@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'
     show WatchContext, ReadContext, Selector;
-import 'package:sentry_flutter/sentry_flutter.dart' show SentryFeedbackWidget;
+import 'package:sentry_flutter/sentry_flutter.dart' show SentryFeedbackForm;
 import 'package:universal_io/universal_io.dart' show Platform;
 
 import '../data/preferences.dart';
@@ -129,7 +129,7 @@ class SettingsPage extends StatelessWidget {
           if (Sentry.isEnabled)
             ListTile(
               title: const Text('Visszajelzés'),
-              onTap: () => SentryFeedbackWidget.show(context),
+              onTap: () => SentryFeedbackForm.show(context),
             ),
           ListTile(
             title: const Text('Impresszum'),
