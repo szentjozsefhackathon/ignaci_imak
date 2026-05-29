@@ -29,7 +29,8 @@ class Notifications with ChangeNotifier {
   static const _androidChannel = AndroidNotificationChannel(
     '$kNotificationChannelBase.emlekezteto',
     'Emlékeztető értesítések',
-    description: 'Az alkalmazás beállításainál megadott időközönként jelennek meg.',
+    description:
+        'Az alkalmazás beállításainál megadott időközönként jelennek meg.',
     importance: Importance.high,
   );
 

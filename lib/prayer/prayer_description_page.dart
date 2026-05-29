@@ -6,10 +6,7 @@ import 'prayer_settings_page.dart';
 import 'prayer_text.dart';
 
 class PrayerDescriptionPage extends StatelessWidget {
-  const PrayerDescriptionPage({
-    super.key,
-    required this.prayer,
-  });
+  const PrayerDescriptionPage({super.key, required this.prayer});
 
   final PrayerWithGroup prayer;
 
