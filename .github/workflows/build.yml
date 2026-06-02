@@ -3,6 +3,9 @@ name: Build & Release App
 on:
   workflow_dispatch: # Manual trigger
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # Required for pushing to GitHub Container Registry (GHCR)
 permissions:
   contents: write

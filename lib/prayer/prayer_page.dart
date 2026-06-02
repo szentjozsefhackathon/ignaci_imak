@@ -1,3 +1,5 @@
+// ignore_for_file: experimental_member_use
+
 import 'dart:async' show Timer;
 import 'dart:typed_data' show Uint8List;
 
@@ -107,8 +109,9 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
           for (int i = 0; i < _nextPageTimes.length; i++) {
             if (_nextPageTimes[i] == _remainingTime) {
               // At i target time we should go to (i + 1) page!
-              final targetPage = i + 1; 
-              if (targetPage > _currentPage && targetPage < widget.data.steps.length) {
+              final targetPage = i + 1;
+              if (targetPage > _currentPage &&
+                  targetPage < widget.data.steps.length) {
                 _updateCurrentPageIndex(targetPage);
                 _vibrateIfNoSound();
               }

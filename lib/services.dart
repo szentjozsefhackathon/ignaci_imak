@@ -32,6 +32,7 @@ class SyncService extends ChangeNotifier {
   SyncService() {
     _client = Dio(
       BaseOptions(
+        // ignore: avoid_redundant_argument_values
         baseUrl: Env.serverUrl,
         connectTimeout: const Duration(seconds: 3),
         receiveTimeout: const Duration(seconds: 5),
@@ -170,8 +171,7 @@ class SyncService extends ChangeNotifier {
 
   SyncStatus get _isStatusIdleOrUpdate {
     final v = _latestVersions;
-    if (v != null &&
-        (_prefs.versions?.isUpdateAvailable(v) ?? true)) {
+    if (v != null && (_prefs.versions?.isUpdateAvailable(v) ?? true)) {
       return SyncStatus.updateAvailable;
     }
     return SyncStatus.idle;

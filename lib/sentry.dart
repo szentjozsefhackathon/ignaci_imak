@@ -25,6 +25,7 @@ Future<void> initSentry() async {
       options.enableTimeToFullDisplayTracing = true;
       options.tracesSampleRate =
           double.tryParse(Env.sentryTracesSampleRate) ?? 1.0;
+      // ignore: experimental_member_use
       options.profilesSampleRate =
           double.tryParse(Env.sentryProfilesSampleRate) ?? 1.0;
       options.replay.sessionSampleRate =
