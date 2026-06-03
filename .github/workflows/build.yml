@@ -69,7 +69,10 @@ jobs:
       - name: Build IPA
         run: flutter build ipa --no-codesign
       - name: Build web app
-        run: flutter build web --base-href="/flutter/" --source-maps
+        run: |
+          dart tools/download_sqlite3_wasm.dart
+          dart compile js -O4 web/drift_worker.dart --output web/drift_worker.js && rm web/drift_worker.dart web/drift_worker.js.deps
+          flutter build web --base-href="/flutter/" --source-maps
 
       - name: Compress iOS output
         run: |
