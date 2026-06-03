@@ -1,43 +1,51 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart' show ChangeNotifierProvider;
 import 'package:universal_io/universal_io.dart' show Platform;
 
 /// see INFocusStatusAuthorizationStatus
 enum FocusAuthorizationStatus { notDetermined, restricted, denied, authorized }
 
-class FocusStatus {
+class FocusStatus extends ChangeNotifier {
+  FocusStatus._() {
+    if (kIsWeb || !Platform.isIOS) {
+      return;
+    }
+    _channel.setMethodCallHandler((MethodCall call) async {
+      if (call.method == 'focusChanged') {
+        final arg = call.arguments;
+        _updateStatus(arg is bool ? arg : null, _authStatus);
+      }
+    });
+    _getFocusStatus().then((r) {
+      if (r == null) {
+        _updateStatus(null, null);
+      } else {
+        final (status, authStatus) = r;
+        _updateStatus(status, authStatus);
+      }
+    });
+  }
+
   static const _channel = MethodChannel('focus_status');
 
   /// null = unsupported/unknown, true = focused, false = not focused
-  static final status = ValueNotifier<bool?>(null);
+  bool? get status => _status;
+  bool? _status;
+
+  void _updateStatus(bool? status, FocusAuthorizationStatus? authStatus) {
+    if (_status == status && _authStatus == authStatus) {
+      return;
+    }
+    _status = status;
+    _authStatus = authStatus;
+    notifyListeners();
+  }
 
   /// null = not an iOS device or status not yet known
-  static final authorizationStatus = ValueNotifier<FocusAuthorizationStatus?>(
-    null,
-  );
-
-  /// Initializes the FocusStatus service.
-  ///
-  /// This must be called once at app startup. It sets up the method channel,
-  /// requests the initial focus status from the native side, and waits for the
-  /// first value to be broadcasted.
-  static Future<bool?> init() async {
-    if (kIsWeb || !Platform.isIOS) {
-      return null;
-    }
-    _channel.setMethodCallHandler(_handleMethodCall);
-    // Request the initial status and wait for the first 'focusChanged' call.
-    await getFocusStatus();
-    return status.value;
-  }
-
-  static Future<void> _handleMethodCall(MethodCall call) async {
-    if (call.method == 'focusChanged') {
-      final arg = call.arguments;
-      status.value = arg is bool ? arg : null;
-    }
-  }
+  FocusAuthorizationStatus? get authStatus => _authStatus;
+  FocusAuthorizationStatus? _authStatus;
 
   static Future<bool> _isSystemVersionAtLeast(int version) async {
     final iosInfo = await DeviceInfoPlugin().iosInfo;
@@ -50,9 +58,8 @@ class FocusStatus {
     return major >= version;
   }
 
-  static Future<bool?> getFocusStatus() async {
+  static Future<(bool, FocusAuthorizationStatus)?> _getFocusStatus() async {
     if (kIsWeb || !Platform.isIOS) {
-      status.value = null;
       return null;
     }
     if (!await _isSystemVersionAtLeast(15)) {
@@ -65,20 +72,17 @@ class FocusStatus {
       // The native side now returns the current focus state upon authorization.
       final isFocused = await _channel.invokeMethod('getFocusStatus');
       // If successful, we know we are authorized.
-      authorizationStatus.value = FocusAuthorizationStatus.authorized;
       if (isFocused is bool) {
-        status.value = isFocused;
+        return (isFocused, FocusAuthorizationStatus.authorized);
       }
     } on PlatformException catch (e) {
       if (e.code == 'UNAUTHORIZED') {
         // App not granted Focus access — treat as "not focused" so UI can offer Settings
-        authorizationStatus.value =
-            FocusAuthorizationStatus.values[e.details as int];
-        status.value = false;
+        return (false, FocusAuthorizationStatus.values[e.details as int]);
       }
       // For other errors (like 'UNSUPPORTED'), status remains null.
     }
-    return status.value;
+    return null;
   }
 
   static Future<bool> openFocusSettings() async {
@@ -95,4 +99,9 @@ class FocusStatus {
       return false;
     }
   }
+}
+
+class FocusStatusProvider extends ChangeNotifierProvider<FocusStatus> {
+  FocusStatusProvider({super.key})
+    : super(create: (context) => FocusStatus._());
 }

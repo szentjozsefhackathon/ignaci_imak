@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/prayer.dart';
-import '../data/prayer_group.dart';
+import '../data/database.dart';
 import 'prayer_app_bar.dart';
 import 'prayer_settings_page.dart';
 import 'prayer_text.dart';
