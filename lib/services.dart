@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:collection/collection.dart';
@@ -18,7 +19,6 @@ import 'package:sentry_dio/sentry_dio.dart';
 import 'package:sentry_flutter/sentry_flutter.dart' show SentryStatusCode;
 import 'package:universal_io/io.dart' show File;
 import 'package:universal_io/universal_io.dart' show HttpHeaders, HttpStatus;
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'data/database.dart';
 import 'data/preferences.dart';
@@ -184,9 +184,7 @@ class SyncService extends ChangeNotifier {
 
   SyncStatus get _isStatusIdleOrUpdate {
     final v = _latestVersions;
-    if (!kIsWeb &&
-        v != null &&
-        (_prefs.versions?.isUpdateAvailable(v) ?? true)) {
+    if (v != null && (_prefs.versions?.isUpdateAvailable(v) ?? true)) {
       return SyncStatus.updateAvailable;
     }
     return SyncStatus.idle;
@@ -599,102 +597,114 @@ class SyncServiceProvider
 
 class AudioHandler extends BaseAudioHandler with ChangeNotifier {
   AudioHandler() : _player = AudioPlayer() {
-    _player.playbackEventStream.map(_transformEvent).pipe(playbackState);
-    playbackState.listen((state) async {
-      final queueLength = queue.valueOrNull?.length;
-      if (queueLength != null &&
-          currentIndex == queueLength - 1 &&
-          _player.processingState == ProcessingState.completed) {
-        await stop();
-        await initSession(
-          const AudioSessionConfiguration.music().copyWith(
-            androidAudioAttributes: const AndroidAudioAttributes(
-              contentType: AndroidAudioContentType.music,
-              usage: AndroidAudioUsage.alarm,
-            ),
-            androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-          ),
-        );
-        final finishPlayer = AudioPlayer();
-        await finishPlayer.setAudioSource(AudioSource.asset('vege.mp3'));
-        await finishPlayer.play();
-        _isFinished = true;
-      }
-      await WakelockPlus.toggle(enable: state.playing);
-      notifyListeners();
-    });
+    _setupPlayerListener();
+    playbackState.listen((_) => notifyListeners());
     mediaItem.listen((item) => notifyListeners());
   }
 
-  final AudioPlayer _player;
+  late AudioPlayer _player;
   static const _kTempFilePrefix = '.ignaciima_';
+  int? _currentIndex;
+  List<Uri>? _voiceUris;
+  bool _paused = false;
+  bool _prayerActive = false;
+  Duration _prayerElapsed = Duration.zero;
+  Duration _prayerTotal = Duration.zero;
+
+  void updatePrayerProgress(Duration elapsed, Duration total) {
+    _prayerElapsed = elapsed;
+    _prayerTotal = total;
+    try {
+      playbackState.add(
+        playbackState.value.copyWith(
+          updatePosition: elapsed,
+          speed: _paused ? 0 : 1,
+        ),
+      );
+    } catch (_) {}
+    notifyListeners();
+  }
 
   Future<void> initSession(AudioSessionConfiguration cfg) async {
     final session = await AudioSession.instance;
     await session.configure(cfg);
   }
 
-  @override
-  Future<void> play() => _player.play();
+  void _setupPlayerListener() {
+    _player.playbackEventStream
+        .map(_transformEvent)
+        .listen((state) => playbackState.add(state));
+  }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> play() async {
+    _paused = false;
+    try {
+      playbackState.add(
+        playbackState.value.copyWith(
+          controls: const [
+            MediaControl.skipToPrevious,
+            MediaControl.pause,
+            MediaControl.skipToNext,
+          ],
+          updatePosition: _prayerElapsed,
+          speed: 1,
+        ),
+      );
+    } catch (_) {}
+    notifyListeners();
+    if (_player.processingState != ProcessingState.idle) {
+      try {
+        await _player.play();
+      } catch (_) {}
+    }
+  }
+
+  @override
+  Future<void> pause() async {
+    _paused = true;
+    try {
+      playbackState.add(
+        playbackState.value.copyWith(
+          controls: const [
+            MediaControl.skipToPrevious,
+            MediaControl.play,
+            MediaControl.skipToNext,
+          ],
+          updatePosition: _prayerElapsed,
+          speed: 0,
+        ),
+      );
+    } catch (_) {}
+    notifyListeners();
+    if (_player.playing) {
+      try {
+        await _player.pause();
+      } catch (_) {}
+    }
+  }
 
   bool get isPlaying => playbackState.valueOrNull?.playing ?? false;
+  bool get isPausedByUser => _paused;
 
-  bool _isFinished = true;
+  bool _isFinished = false;
   bool get isFinished => _isFinished;
-
-  Duration? get totalDuration {
-    final items = queue.valueOrNull;
-    if (items == null) {
-      return null;
-    }
-    return items
-        .map((i) => i.duration)
-        .whereType<Duration>()
-        .reduce((t, d) => t + d);
-  }
-
-  Duration? get playedDuration {
-    final index = currentIndex;
-    final items = queue.valueOrNull;
-    if (index == null || items == null) {
-      return null;
-    }
-    return items
-        .mapIndexed((idx, i) {
-          if (idx < index) {
-            return i.duration;
-          }
-          if (idx == index) {
-            return playbackState.valueOrNull?.position;
-          }
-          return null;
-        })
-        .whereType<Duration>()
-        .reduce((t, d) => t + d);
-  }
-
-  Duration? get remainingTime {
-    final total = totalDuration;
-    if (total == null) {
-      return null;
-    }
-    final played = playedDuration;
-    if (played == null) {
-      return null;
-    }
-    return total - played;
-  }
 
   MediaItem? get currentItem => mediaItem.valueOrNull;
 
-  int? get currentIndex => playbackState.valueOrNull?.queueIndex;
+  int? get currentIndex => _currentIndex;
 
   @override
   Future<void> stop() async {
-    await _player.stop();
+    _paused = false;
+    _prayerActive = false;
+    _prayerTotal = Duration.zero;
+    _prayerElapsed = Duration.zero;
+    try {
+      await _player.stop();
+    } catch (_) {}
+    _isFinished = true;
+    notifyListeners();
     await super.stop();
     await _cleanupTempFiles();
   }
@@ -724,37 +734,14 @@ class AudioHandler extends BaseAudioHandler with ChangeNotifier {
     Duration totalDuration,
     int voiceIndex,
   ) async {
+    _paused = false;
+    unawaited(_player.dispose().catchError((_) {}));
+    _player = AudioPlayer();
+    _setupPlayerListener();
     await _cleanupTempFiles();
     if (!context.mounted) {
       return;
     }
-
-    final stepDurations = <Duration>[];
-    Duration totalFixTime = Duration.zero;
-    Duration totalFlexTime = Duration.zero;
-    for (final step in p.steps) {
-      if (step.type == PrayerStepType.fix) {
-        totalFixTime += step.time;
-      } else if (step.type == PrayerStepType.flex) {
-        totalFlexTime += step.time;
-      }
-    }
-    final totalTimeForFlex = totalDuration - totalFixTime;
-    Duration remainingTime = totalDuration;
-    for (final step in p.steps) {
-      if (step.type == PrayerStepType.fix) {
-        remainingTime -= step.time;
-      } else if (step.type == PrayerStepType.flex) {
-        remainingTime -= Duration(
-          seconds:
-              totalTimeForFlex.inSeconds *
-              step.time.inSeconds ~/
-              totalFlexTime.inSeconds,
-        );
-      }
-      stepDurations.add(remainingTime);
-    }
-    stepDurations.removeLast();
 
     final db = context.read<Database>();
     final imageUri = kIsWeb
@@ -771,69 +758,124 @@ class AudioHandler extends BaseAudioHandler with ChangeNotifier {
           });
     final mediaItems = p.steps
         .mapIndexed((index, step) {
-          final name = step.voices[voiceIndex];
+          final voiceIdx = voiceIndex.clamp(0, step.voices.length - 1);
+          final name = step.voices[voiceIdx];
           return MediaItem(
             id: name,
-            album: group.title,
-            title: p.prayer.title,
+            album: '${p.prayer.title} · ${group.title}',
+            title: step.description,
             artUri: imageUri,
-            duration: stepDurations[index],
+            duration: totalDuration,
           );
         })
         .toList(growable: false);
-    final audioSources = <AudioSource>[];
+
+    _voiceUris = [];
     for (final m in mediaItems) {
       final Uri voiceUri;
       if (kIsWeb) {
-        voiceUri = Env.serverUri.replace(path: Env.serverImagePath(m.id));
+        voiceUri = Env.serverUri.replace(path: Env.serverVoicePath(m.id));
       } else {
-        voiceUri = await db.mediaDao.voiceByName(m.id).then((voice) async {
-          final tempDir = await getTemporaryDirectory();
-          final file = File('${tempDir.path}/$_kTempFilePrefix${m.id}');
-          if (!file.existsSync()) {
-            await file.writeAsBytes(voice.data);
-          }
-          return file.uri;
-        });
+        try {
+          voiceUri = await db.mediaDao.voiceByName(m.id).then((voice) async {
+            final tempDir = await getTemporaryDirectory();
+            final file = File('${tempDir.path}/$_kTempFilePrefix${m.id}');
+            if (!file.existsSync()) {
+              await file.writeAsBytes(voice.data);
+            }
+            return file.uri;
+          });
+        } catch (_) {
+          continue;
+        }
       }
-      audioSources.add(AudioSource.uri(voiceUri));
+      _voiceUris!.add(voiceUri);
+    }
+
+    if (_voiceUris!.isEmpty) {
+      return;
     }
 
     _isFinished = false;
+    _prayerActive = true;
+    _currentIndex = 0;
     queue.add(mediaItems);
-    await _player.setAudioSources(audioSources);
+    try {
+      await _loadAndPlayStep(0);
+    } catch (_) {
+      _prayerActive = false;
+    }
+  }
+
+  Future<void> _loadAndPlayStep(int index) async {
+    if (_voiceUris == null || index >= _voiceUris!.length) {
+      return;
+    }
+    final uri = _voiceUris![index];
+    if (uri.scheme == 'file' && !File(uri.toFilePath()).existsSync()) {
+      mediaItem.add(queue.value[index]);
+      return;
+    }
+    try {
+      await _player.stop();
+      await _player.setAudioSource(AudioSource.uri(uri));
+      mediaItem.add(queue.value[index]);
+      if (!_paused) {
+        await _player.play();
+      }
+    } catch (_) {}
   }
 
   @override
   Future<void> skipToPrevious() async {
-    if (_player.previousIndex case final int previousIndex) {
-      await skipToQueueItem(previousIndex);
+    final prevIndex = (_currentIndex ?? 0) - 1;
+    if (prevIndex >= 0) {
+      await skipToQueueItem(prevIndex);
     }
   }
 
   @override
   Future<void> skipToNext() async {
-    if (_player.nextIndex case final int nextIndex) {
+    final nextIndex = (_currentIndex ?? 0) + 1;
+    final queueLen = queue.valueOrNull?.length ?? 0;
+    if (nextIndex < queueLen) {
       await skipToQueueItem(nextIndex);
     }
   }
 
   @override
   Future<void> skipToQueueItem(int index) async {
+    if (queue.valueOrNull == null || index >= queue.value.length) {
+      return;
+    }
+    _currentIndex = index;
     playbackState.add(playbackState.value.copyWith(queueIndex: index));
     mediaItem.add(queue.value[index]);
-    await _player.seek(Duration.zero, index: index);
-    await super.skipToQueueItem(index);
+    try {
+      await _loadAndPlayStep(index);
+    } catch (_) {}
+  }
+
+  Future<void> finish() async {
+    _prayerActive = false;
+    _prayerTotal = Duration.zero;
+    _prayerElapsed = Duration.zero;
+    _isFinished = true;
+    await _player.stop();
+    notifyListeners();
+    final finishPlayer = AudioPlayer();
+    await finishPlayer.setAudioSource(AudioSource.asset('csengo.mp3'));
+    await finishPlayer.play();
+    await finishPlayer.dispose();
   }
 
   PlaybackState _transformEvent(PlaybackEvent event) => PlaybackState(
     controls: [
       MediaControl.skipToPrevious,
-      if (_player.playing) MediaControl.pause else MediaControl.play,
-      MediaControl.stop,
+      if (_paused) MediaControl.play else MediaControl.pause,
       MediaControl.skipToNext,
     ],
-    androidCompactActionIndices: const [0, 1, 3],
+    androidCompactActionIndices: const [0, 1, 2],
     processingState: switch (_player.processingState) {
       ProcessingState.idle => AudioProcessingState.idle,
       ProcessingState.loading => AudioProcessingState.loading,
@@ -841,12 +883,13 @@ class AudioHandler extends BaseAudioHandler with ChangeNotifier {
       ProcessingState.ready => AudioProcessingState.ready,
       ProcessingState.completed => AudioProcessingState.idle,
     },
-    playing:
-        _player.playing && _player.processingState != ProcessingState.completed,
-    updatePosition: _player.position,
+    playing: _prayerActive,
+    updatePosition: _prayerTotal > Duration.zero
+        ? _prayerElapsed
+        : _player.position,
     bufferedPosition: _player.bufferedPosition,
-    speed: _player.speed,
-    queueIndex: event.currentIndex,
+    speed: _prayerTotal > Duration.zero ? (_paused ? 0 : 1) : _player.speed,
+    queueIndex: _currentIndex,
   );
 }
 

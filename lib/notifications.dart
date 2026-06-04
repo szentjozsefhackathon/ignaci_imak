@@ -19,7 +19,7 @@ typedef _Android = AndroidFlutterLocalNotificationsPlugin;
 typedef _IOS = IOSFlutterLocalNotificationsPlugin;
 typedef _MacOS = MacOSFlutterLocalNotificationsPlugin;
 
-const kNotificationIcon = '@drawable/ic_stat_notification';
+const kNotificationIcon = 'drawable/ic_stat_notification';
 const kNotificationChannelBase = 'hu.jezsuita.ignaciima';
 
 class Notifications with ChangeNotifier {

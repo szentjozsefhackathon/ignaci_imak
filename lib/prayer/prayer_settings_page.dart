@@ -129,7 +129,7 @@ class PrayerSettingsPage extends StatelessWidget {
                             min: prayer.prayer.minTime.inMinutes.toDouble(),
                             max: 60,
                             divisions: 60 - prayer.prayer.minTime.inMinutes,
-                            label: '$length perc',
+                            label: '${length.inMinutes} perc',
                             onChanged: (v) => setState(
                               () => length = Duration(minutes: v.toInt()),
                             ),
