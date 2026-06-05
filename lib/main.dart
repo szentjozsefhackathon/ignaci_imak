@@ -5,7 +5,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
-import 'package:provider/provider.dart' show MultiProvider, Selector;
+import 'package:provider/provider.dart' show MultiProvider, Provider, Selector;
 import 'package:relative_time/relative_time.dart';
 import 'package:timezone/data/latest_all.dart' as tzdb;
 import 'package:timezone/timezone.dart'
@@ -51,6 +51,7 @@ void main() async {
     await initSentry();
   }
   final audioHandler = await AudioHandlerProvider.createHandler();
+  Provider.debugCheckInvalidValueType = null;
 
   runApp(
     SentryWidget(
