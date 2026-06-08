@@ -47,6 +47,7 @@ analyzer:
     implicit-casts: true
   errors:
     avoid_as: warning
+    experimental_member_use: info
     invalid_assignment: warning
     missing_required_param: error
     missing_return: error
