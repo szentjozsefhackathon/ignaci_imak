@@ -59,8 +59,12 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
           _fabAnimationController.reverse();
         }
       }
+      final targetPage = _audioHandler.currentIndex;
+      if (targetPage != null && targetPage != _currentPage) {
+        _pageViewController.jumpToPage(targetPage);
+      }
       setState(() {
-        _currentPage = _audioHandler.currentIndex ?? _currentPage;
+        _currentPage = targetPage ?? _currentPage;
       });
     });
     final prefs = context.read<Preferences>();

@@ -56,6 +56,7 @@ class AudioHandler extends BaseAudioHandler {
   bool _autoPageTurn = false;
   bool _prayerHasVoices = false;
   bool _soundMuted = false;
+  Uri? _silenceUri;
 
   static Future<Uri> _ensureSilenceFile() async {
     final tempDir = await getTemporaryDirectory();
@@ -143,6 +144,17 @@ class AudioHandler extends BaseAudioHandler {
   void _setupPlayerListener() {
     _player.playbackEventStream.listen((event) {
       playbackState.add(_transformEvent(event));
+      if (event.processingState == ProcessingState.completed &&
+          _prayerActive &&
+          !_paused &&
+          _silenceUri != null) {
+        unawaited(
+          _player
+              .setAudioSource(AudioSource.uri(_silenceUri!))
+              .then((_) => _player.setLoopMode(LoopMode.all))
+              .then((_) => _player.play()),
+        );
+      }
     });
   }
 
@@ -345,8 +357,18 @@ class AudioHandler extends BaseAudioHandler {
             }
             return file.uri;
           });
+    _silenceUri ??= await _ensureSilenceFile();
     final mediaItems = p.steps
         .mapIndexed((index, step) {
+          if (step.voices.isEmpty) {
+            return MediaItem(
+              id: '__silence__',
+              album: '${p.prayer.title} · ${group.title}',
+              title: step.description,
+              artUri: imageUri,
+              duration: totalDuration,
+            );
+          }
           final voiceIdx = voiceIndex.clamp(0, step.voices.length - 1);
           final name = step.voices[voiceIdx];
           return MediaItem(
@@ -361,6 +383,10 @@ class AudioHandler extends BaseAudioHandler {
 
     _voiceUris = [];
     for (final m in mediaItems) {
+      if (m.id == '__silence__') {
+        _voiceUris!.add(_silenceUri!);
+        continue;
+      }
       final Uri voiceUri;
       if (kIsWeb) {
         voiceUri = Env.serverUri.replace(path: Env.serverVoicePath(m.id));
@@ -375,6 +401,7 @@ class AudioHandler extends BaseAudioHandler {
             return file.uri;
           });
         } catch (_) {
+          _voiceUris!.add(_silenceUri!);
           continue;
         }
       }
@@ -427,8 +454,12 @@ class AudioHandler extends BaseAudioHandler {
       return;
     }
     try {
-      await _player.stop();
       await _player.setAudioSource(AudioSource.uri(uri));
+      if (uri == _silenceUri) {
+        await _player.setLoopMode(LoopMode.all);
+      } else {
+        await _player.setLoopMode(LoopMode.off);
+      }
       mediaItem.add(queue.value[index]);
       if (!_paused) {
         await _player.play();
@@ -483,6 +514,25 @@ class AudioHandler extends BaseAudioHandler {
     _prayerElapsed = Duration.zero;
     _isFinished = true;
     unawaited(WakelockPlus.disable());
+
+    if (_csengoUri != null) {
+      final finishPlayer = AudioPlayer();
+      try {
+        await finishPlayer.setAudioSource(AudioSource.uri(_csengoUri!));
+        final done = finishPlayer.processingStateStream.firstWhere(
+          (s) => s == ProcessingState.completed,
+        );
+        await finishPlayer.play();
+        await done.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => ProcessingState.completed,
+        );
+      } catch (_) {
+      } finally {
+        unawaited(finishPlayer.dispose());
+      }
+    }
+
     try {
       await _player.stop();
     } catch (_) {}
@@ -490,16 +540,23 @@ class AudioHandler extends BaseAudioHandler {
       await _bgPlayer.stop();
     } catch (_) {}
     _restoreDnd();
-    if (_csengoUri != null) {
-      final finishPlayer = AudioPlayer();
-      try {
-        await finishPlayer.setAudioSource(AudioSource.uri(_csengoUri!));
-        await finishPlayer.play();
-        await finishPlayer.dispose();
-      } catch (_) {
-        unawaited(finishPlayer.dispose());
-      }
-    }
+
+    try {
+      playbackState.add(
+        playbackState.value.copyWith(
+          controls: [],
+          playing: false,
+          processingState: AudioProcessingState.ready,
+        ),
+      );
+      playbackState.add(
+        playbackState.value.copyWith(
+          controls: [],
+          playing: false,
+          processingState: AudioProcessingState.idle,
+        ),
+      );
+    } catch (_) {}
   }
 
   static List<Duration> computePageStartTimes(
@@ -621,7 +678,10 @@ class AudioHandler extends BaseAudioHandler {
     ],
     androidCompactActionIndices: const [0, 1, 2],
     processingState: switch (_player.processingState) {
-      ProcessingState.idle => AudioProcessingState.idle,
+      ProcessingState.idle =>
+        _prayerActive && _prayerTotal > Duration.zero
+            ? AudioProcessingState.ready
+            : AudioProcessingState.idle,
       ProcessingState.loading => AudioProcessingState.loading,
       ProcessingState.buffering => AudioProcessingState.buffering,
       ProcessingState.ready => AudioProcessingState.ready,
