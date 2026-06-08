@@ -147,6 +147,7 @@ class AudioHandler extends BaseAudioHandler {
       if (event.processingState == ProcessingState.completed &&
           _prayerActive &&
           !_paused &&
+          !kIsWeb &&
           _silenceUri != null) {
         unawaited(
           _player
@@ -357,7 +358,9 @@ class AudioHandler extends BaseAudioHandler {
             }
             return file.uri;
           });
-    _silenceUri ??= await _ensureSilenceFile();
+    if (!kIsWeb) {
+      _silenceUri ??= await _ensureSilenceFile();
+    }
     final mediaItems = p.steps
         .mapIndexed((index, step) {
           if (step.voices.isEmpty) {
@@ -384,6 +387,10 @@ class AudioHandler extends BaseAudioHandler {
     _voiceUris = [];
     for (final m in mediaItems) {
       if (m.id == '__silence__') {
+        if (kIsWeb) {
+          _voiceUris!.add(Uri());
+          continue;
+        }
         _voiceUris!.add(_silenceUri!);
         continue;
       }
@@ -441,7 +448,9 @@ class AudioHandler extends BaseAudioHandler {
     } catch (_) {
       _prayerActive = false;
     }
-    await _startBgLoop();
+    if (!kIsWeb) {
+      await _startBgLoop();
+    }
   }
 
   Future<void> _loadAndPlayStep(int index) async {
@@ -449,6 +458,10 @@ class AudioHandler extends BaseAudioHandler {
       return;
     }
     final uri = _voiceUris![index];
+    if (uri.toString().isEmpty) {
+      mediaItem.add(queue.value[index]);
+      return;
+    }
     if (uri.scheme == 'file' && !File(uri.toFilePath()).existsSync()) {
       mediaItem.add(queue.value[index]);
       return;
