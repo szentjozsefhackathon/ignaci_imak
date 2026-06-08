@@ -1,0 +1,4 @@
+FROM nginx:alpine
+# Copy the web folder built by Flutter in the previous step
+COPY build/web /usr/share/nginx/html
+EXPOSE 80

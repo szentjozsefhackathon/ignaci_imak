@@ -12,6 +12,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       # these env variables (but not their values) are required for build_runner
       SERVER_URL: ''
       SERVER_CHECK_VERSIONS_PATH: ''
