@@ -124,7 +124,9 @@ class AudioHandler extends BaseAudioHandler {
     _prayerStartTime = DateTime.now();
     _prayerElapsed = Duration.zero;
     _remainingTime = _prayerTotal;
-    unawaited(WakelockPlus.enable());
+    if (!kIsWeb) {
+      unawaited(WakelockPlus.enable());
+    }
     _startPrayerTimer();
   }
 
@@ -171,7 +173,9 @@ class AudioHandler extends BaseAudioHandler {
       }
       _pausedAt = null;
     }
-    unawaited(WakelockPlus.enable());
+    if (!kIsWeb) {
+      unawaited(WakelockPlus.enable());
+    }
     if (_prayerTimer == null) {
       _startPrayerTimer();
     }
@@ -202,7 +206,9 @@ class AudioHandler extends BaseAudioHandler {
   Future<void> pause() async {
     _paused = true;
     _pausedAt = DateTime.now();
-    unawaited(WakelockPlus.disable());
+    if (!kIsWeb) {
+      unawaited(WakelockPlus.disable());
+    }
     _prayerTimer?.cancel();
     _prayerTimer = null;
     _prayerIsRunning = false;
@@ -250,7 +256,9 @@ class AudioHandler extends BaseAudioHandler {
     _pausedAt = null;
     _paused = true;
     _prayerActive = false;
-    unawaited(WakelockPlus.disable());
+    if (!kIsWeb) {
+      unawaited(WakelockPlus.disable());
+    }
     try {
       await _player.stop();
     } catch (_) {}
@@ -270,7 +278,9 @@ class AudioHandler extends BaseAudioHandler {
     _prayerActive = false;
     _prayerTotal = Duration.zero;
     _prayerElapsed = Duration.zero;
-    unawaited(WakelockPlus.disable());
+    if (!kIsWeb) {
+      unawaited(WakelockPlus.disable());
+    }
     try {
       await _player.stop();
     } catch (_) {}
@@ -526,7 +536,9 @@ class AudioHandler extends BaseAudioHandler {
     _prayerTotal = Duration.zero;
     _prayerElapsed = Duration.zero;
     _isFinished = true;
-    unawaited(WakelockPlus.disable());
+    if (!kIsWeb) {
+      unawaited(WakelockPlus.disable());
+    }
 
     if (_csengoUri != null) {
       final finishPlayer = AudioPlayer();
@@ -671,7 +683,9 @@ class AudioHandler extends BaseAudioHandler {
 
   Future<void> _finishPrayer() async {
     _prayerIsRunning = false;
-    unawaited(WakelockPlus.disable());
+    if (!kIsWeb) {
+      unawaited(WakelockPlus.disable());
+    }
     await finish();
     _vibrateIfNoSound();
   }
