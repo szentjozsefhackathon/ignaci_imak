@@ -5,7 +5,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
-import 'package:provider/provider.dart' show MultiProvider, Selector;
+import 'package:provider/provider.dart' show MultiProvider, Provider, Selector;
 import 'package:relative_time/relative_time.dart';
 import 'package:timezone/data/latest_all.dart' as tzdb;
 import 'package:timezone/timezone.dart'
@@ -50,14 +50,25 @@ void main() async {
   if (prefs.sentryEnabled) {
     await initSentry();
   }
+  final audioHandler = await AudioHandlerProvider.createHandler();
+  Provider.debugCheckInvalidValueType = null;
 
-  runApp(SentryWidget(child: IgnacioPrayersApp(prefs: prefs)));
+  runApp(
+    SentryWidget(
+      child: IgnacioPrayersApp(prefs: prefs, audioHandler: audioHandler),
+    ),
+  );
 }
 
 class IgnacioPrayersApp extends StatelessWidget {
-  const IgnacioPrayersApp({super.key, required this.prefs});
+  const IgnacioPrayersApp({
+    super.key,
+    required this.prefs,
+    required this.audioHandler,
+  });
 
   final Preferences prefs;
+  final AudioHandler audioHandler;
 
   @override
   Widget build(BuildContext context) => MultiProvider(
@@ -65,6 +76,7 @@ class IgnacioPrayersApp extends StatelessWidget {
       PreferencesProvider(prefs),
       DatabaseProvider(),
       SyncServiceProvider(),
+      AudioHandlerProvider(value: audioHandler),
       if (!kIsWeb) ...[
         NotificationsProvider(),
         if (Platform.isIOS) FocusStatusProvider(),

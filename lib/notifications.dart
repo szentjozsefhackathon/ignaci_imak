@@ -19,13 +19,18 @@ typedef _Android = AndroidFlutterLocalNotificationsPlugin;
 typedef _IOS = IOSFlutterLocalNotificationsPlugin;
 typedef _MacOS = MacOSFlutterLocalNotificationsPlugin;
 
+const kNotificationIcon = 'drawable/ic_stat_notification';
+const kNotificationChannelBase = 'hu.jezsuita.ignaciima';
+
 class Notifications with ChangeNotifier {
   static final _log = Logger('Notifications');
   final _n = FlutterLocalNotificationsPlugin();
 
   static const _androidChannel = AndroidNotificationChannel(
-    'emlekezteto',
+    '$kNotificationChannelBase.emlekezteto',
     'Emlékeztető értesítések',
+    description:
+        'Az alkalmazás beállításainál megadott időközönként jelennek meg.',
     importance: Importance.high,
   );
 
@@ -68,15 +73,13 @@ class Notifications with ChangeNotifier {
 
     final initialized = await _n.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings(
-          '@drawable/ic_stat_notification',
-        ),
+        android: AndroidInitializationSettings(kNotificationIcon),
         iOS: DarwinInitializationSettings(),
         macOS: DarwinInitializationSettings(),
         linux: LinuxInitializationSettings(defaultActionName: 'Megnyitás'),
         windows: WindowsInitializationSettings(
           appName: 'Ignáci imák',
-          appUserModelId: 'hu.jezsuita.ignaciima',
+          appUserModelId: kNotificationChannelBase,
           guid: '349fd997-d211-4ac7-9690-8ed1bb184196',
         ),
       ),

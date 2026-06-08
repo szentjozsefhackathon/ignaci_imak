@@ -81,6 +81,7 @@ android/app/build/
 android/build/
 android/app/.cxx/
 android/.kotlin/
+android/local.properties
 
 # flutter_launcher_icons
 android/app/src/main/res/**/*launcher*.png
