@@ -698,8 +698,7 @@ class AudioHandler extends BaseAudioHandler {
 }
 
 class AudioHandlerProvider extends Provider<AudioHandler> {
-  AudioHandlerProvider({super.key, required AudioHandler value})
-    : super.value(value: value);
+  AudioHandlerProvider({super.key, required super.value}) : super.value();
 
   static Future<AudioHandler>
   createHandler() => AudioService.init<AudioHandler>(
