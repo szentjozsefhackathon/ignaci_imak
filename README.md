@@ -15,7 +15,9 @@ flutter pub get
 dart run build_runner build
 
 # create generated icons
-dart run flutter_launcher_icons
+flutter pub run flutter_launcher_icons
+
+dart run flutter_native_splash:create
 
 # start app in emulator (Android/iOS)
 flutter run

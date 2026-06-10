@@ -90,6 +90,12 @@ ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
 web/favicon.png
 web/icons/Icon-*.png
 
+# flutter_native_splash
+android/app/src/main/res/**/*splash*.png
+android/app/src/main/res/**/background.png
+ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage*.png
+ios/Runner/Assets.xcassets/LaunchBackground.imageset/
+
 .env
 key.properties
 sentry.properties
