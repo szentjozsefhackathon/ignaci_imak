@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../data/database.dart';
 import '../data/preferences.dart';
-import '../services.dart';
+import '../services/audio_handler.dart';
 import 'prayer_text.dart';
 
 class PrayerPage extends StatefulWidget {

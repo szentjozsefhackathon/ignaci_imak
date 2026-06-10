@@ -7,7 +7,7 @@ import 'package:relative_time/relative_time.dart';
 import '../data/preferences.dart';
 import '../data/versions.dart';
 import '../prayer/sync.dart';
-import '../services.dart';
+import '../services/sync_service.dart';
 
 class DataSyncPage extends StatelessWidget {
   const DataSyncPage({super.key});

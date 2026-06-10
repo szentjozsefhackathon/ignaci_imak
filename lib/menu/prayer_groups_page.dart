@@ -10,7 +10,7 @@ import '../data/database.dart';
 import '../prayer/prayer_card.dart';
 import '../prayer/search.dart';
 import '../routes.dart';
-import '../services.dart';
+import '../services/sync_service.dart';
 import 'common.dart';
 
 class PrayerGroupsPage extends StatefulWidget {

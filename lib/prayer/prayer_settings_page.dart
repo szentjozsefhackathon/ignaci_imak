@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/database.dart';
 import '../data/preferences.dart';
 import '../routes.dart';
-import '../services.dart';
+import '../services/sync_service.dart' show SyncService;
 import '../settings/dnd.dart';
 import '../settings/focus_status.dart';
 import 'prayer_page.dart';
