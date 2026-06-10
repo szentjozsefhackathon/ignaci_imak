@@ -85,7 +85,9 @@ class MediaDao extends DatabaseAccessor<Database> with _$MediaDaoMixin {
     final allNames = <String>[];
     for (final option in prayer.voiceOptions) {
       final voiceIndex = prayer.voiceOptions.indexOf(option);
-      final optionNames = steps.map((step) => step.voices[voiceIndex]);
+      final optionNames = steps
+          .where((step) => voiceIndex < step.voices.length)
+          .map((step) => step.voices[voiceIndex]);
       names[option] = optionNames;
       allNames.addAll(optionNames);
     }

@@ -1,5 +1,6 @@
 import 'dart:async' show Timer, unawaited;
 import 'dart:typed_data' show Uint8List, ByteData, Endian;
+import 'dart:ui' show VoidCallback;
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:collection/collection.dart';
@@ -28,13 +29,16 @@ export 'package:audio_session/audio_session.dart';
 // https://pub.dev/packages/just_audio_background
 
 class AudioHandler extends BaseAudioHandler {
-  AudioHandler() : _player = AudioPlayer(), _bgPlayer = AudioPlayer() {
+  AudioHandler()
+    : _player = AudioPlayer(),
+      _bgPlayer = kIsWeb ? null : AudioPlayer() {
     _setupPlayerListener();
   }
 
   late AudioPlayer _player;
-  final AudioPlayer _bgPlayer;
+  final AudioPlayer? _bgPlayer;
   static const _kTempFilePrefix = '.ignaciima_';
+  VoidCallback? onPrayerEnded;
   int? _currentIndex;
   List<Uri>? _voiceUris;
   bool _paused = false;
@@ -103,16 +107,16 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   Future<void> _startBgLoop() async {
+    if (kIsWeb) return;
+    final player = _bgPlayer!;
     final silenceUri = await _ensureSilenceFile();
-    await _bgPlayer.setAudioSource(AudioSource.uri(silenceUri));
-    await _bgPlayer.setLoopMode(LoopMode.all);
-    await _bgPlayer.play();
+    await player.setAudioSource(AudioSource.uri(silenceUri));
+    await player.setLoopMode(LoopMode.all);
+    await player.play();
   }
 
   Future<void> _stopBgLoop() async {
-    if (_bgPlayer.playing) {
-      await _bgPlayer.stop();
-    }
+    await _bgPlayer?.stop();
   }
 
   void preparePrayer(Duration total) {
@@ -124,9 +128,7 @@ class AudioHandler extends BaseAudioHandler {
     _prayerStartTime = DateTime.now();
     _prayerElapsed = Duration.zero;
     _remainingTime = _prayerTotal;
-    if (!kIsWeb) {
-      unawaited(WakelockPlus.enable());
-    }
+    unawaited(WakelockPlus.enable());
     _startPrayerTimer();
   }
 
@@ -155,7 +157,8 @@ class AudioHandler extends BaseAudioHandler {
           _player
               .setAudioSource(AudioSource.uri(_silenceUri!))
               .then((_) => _player.setLoopMode(LoopMode.all))
-              .then((_) => _player.play()),
+              .then((_) => _player.play())
+              .catchError((_) {}),
         );
       }
     });
@@ -173,9 +176,7 @@ class AudioHandler extends BaseAudioHandler {
       }
       _pausedAt = null;
     }
-    if (!kIsWeb) {
-      unawaited(WakelockPlus.enable());
-    }
+    unawaited(WakelockPlus.enable());
     if (_prayerTimer == null) {
       _startPrayerTimer();
     }
@@ -206,9 +207,7 @@ class AudioHandler extends BaseAudioHandler {
   Future<void> pause() async {
     _paused = true;
     _pausedAt = DateTime.now();
-    if (!kIsWeb) {
-      unawaited(WakelockPlus.disable());
-    }
+    unawaited(WakelockPlus.disable());
     _prayerTimer?.cancel();
     _prayerTimer = null;
     _prayerIsRunning = false;
@@ -256,14 +255,12 @@ class AudioHandler extends BaseAudioHandler {
     _pausedAt = null;
     _paused = true;
     _prayerActive = false;
-    if (!kIsWeb) {
-      unawaited(WakelockPlus.disable());
-    }
+    unawaited(WakelockPlus.disable());
     try {
       await _player.stop();
     } catch (_) {}
     try {
-      await _bgPlayer.stop();
+      await _bgPlayer?.stop();
     } catch (_) {}
     _restoreDnd();
     await super.stop();
@@ -278,14 +275,12 @@ class AudioHandler extends BaseAudioHandler {
     _prayerActive = false;
     _prayerTotal = Duration.zero;
     _prayerElapsed = Duration.zero;
-    if (!kIsWeb) {
-      unawaited(WakelockPlus.disable());
-    }
+    unawaited(WakelockPlus.disable());
     try {
       await _player.stop();
     } catch (_) {}
     try {
-      await _bgPlayer.stop();
+      await _bgPlayer?.stop();
     } catch (_) {}
     _restoreDnd();
     _isFinished = true;
@@ -294,6 +289,7 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   Future<void> _cleanupTempFiles() async {
+    if (kIsWeb) return;
     final tempDir = await getTemporaryDirectory();
     final tempFiles = tempDir
         .list(followLinks: false)
@@ -305,7 +301,9 @@ class AudioHandler extends BaseAudioHandler {
                   .startsWith(_kTempFilePrefix),
         );
     await for (final f in tempFiles) {
-      await f.delete();
+      try {
+        await f.delete();
+      } catch (_) {}
     }
   }
 
@@ -325,7 +323,9 @@ class AudioHandler extends BaseAudioHandler {
     _prayerElapsed = Duration.zero;
     _csengoUri = null;
     await _stopBgLoop();
-    unawaited(_player.dispose().catchError((_) {}));
+    try {
+      await _player.dispose();
+    } catch (_) {}
     _player = AudioPlayer();
     _setupPlayerListener();
     await _cleanupTempFiles();
@@ -438,6 +438,7 @@ class AudioHandler extends BaseAudioHandler {
     _totalSteps = p.steps.length;
     _prayerHasVoices = p.prayer.voiceOptions.isNotEmpty;
     _autoPageTurn = prefs.autoPageTurn;
+    _soundMuted = !prefs.prayerSoundEnabled;
     playbackState.add(
       PlaybackState(
         controls: const [
@@ -470,6 +471,7 @@ class AudioHandler extends BaseAudioHandler {
     final uri = _voiceUris![index];
     if (uri.toString().isEmpty) {
       mediaItem.add(queue.value[index]);
+      await _player.stop();
       return;
     }
     if (uri.scheme == 'file' && !File(uri.toFilePath()).existsSync()) {
@@ -477,6 +479,9 @@ class AudioHandler extends BaseAudioHandler {
       return;
     }
     try {
+      if (kIsWeb) {
+        await _player.stop();
+      }
       await _player.setAudioSource(AudioSource.uri(uri));
       if (uri == _silenceUri) {
         await _player.setLoopMode(LoopMode.all);
@@ -485,6 +490,7 @@ class AudioHandler extends BaseAudioHandler {
       }
       mediaItem.add(queue.value[index]);
       if (!_paused) {
+        await _player.setVolume(_soundMuted ? 0 : 1);
         await _player.play();
       }
     } catch (_) {}
@@ -535,34 +541,20 @@ class AudioHandler extends BaseAudioHandler {
     _prayerActive = false;
     _prayerTotal = Duration.zero;
     _prayerElapsed = Duration.zero;
-    _isFinished = true;
-    if (!kIsWeb) {
-      unawaited(WakelockPlus.disable());
-    }
-
-    if (_csengoUri != null) {
-      final finishPlayer = AudioPlayer();
-      try {
-        await finishPlayer.setAudioSource(AudioSource.uri(_csengoUri!));
-        final done = finishPlayer.processingStateStream.firstWhere(
-          (s) => s == ProcessingState.completed,
-        );
-        await finishPlayer.play();
-        await done.timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => ProcessingState.completed,
-        );
-      } catch (_) {
-      } finally {
-        unawaited(finishPlayer.dispose());
-      }
-    }
+    _currentIndex = null;
+    _prayerCurrentPage = 0;
+    _pageStartTimes = [];
+    _totalSteps = 0;
+    _prayerHasVoices = false;
+    _voiceUris = null;
+    _autoPageTurn = false;
+    unawaited(WakelockPlus.disable());
 
     try {
       await _player.stop();
     } catch (_) {}
     try {
-      await _bgPlayer.stop();
+      await _bgPlayer?.stop();
     } catch (_) {}
     _restoreDnd();
 
@@ -574,14 +566,39 @@ class AudioHandler extends BaseAudioHandler {
           processingState: AudioProcessingState.ready,
         ),
       );
-      playbackState.add(
-        playbackState.value.copyWith(
-          controls: [],
-          playing: false,
-          processingState: AudioProcessingState.idle,
-        ),
-      );
     } catch (_) {}
+
+    final onEnded = onPrayerEnded;
+    onPrayerEnded = null;
+
+    if (_csengoUri != null) {
+      final finishPlayer = AudioPlayer();
+      try {
+        await finishPlayer.setAudioSource(AudioSource.uri(_csengoUri!));
+        if (kIsWeb) {
+          await finishPlayer.play();
+          await Future.delayed(const Duration(seconds: 1));
+        } else {
+          final done = finishPlayer.processingStateStream.firstWhere(
+            (s) => s == ProcessingState.completed,
+          );
+          await finishPlayer.play();
+          await done.timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => ProcessingState.completed,
+          );
+        }
+      } catch (_) {
+      } finally {
+        unawaited(finishPlayer.dispose().catchError((_) {}));
+      }
+    }
+
+    if (onPrayerEnded == null) {
+      try {
+        onEnded?.call();
+      } catch (_) {}
+    }
   }
 
   static List<Duration> computePageStartTimes(
@@ -683,9 +700,7 @@ class AudioHandler extends BaseAudioHandler {
 
   Future<void> _finishPrayer() async {
     _prayerIsRunning = false;
-    if (!kIsWeb) {
-      unawaited(WakelockPlus.disable());
-    }
+    unawaited(WakelockPlus.disable());
     await finish();
     _vibrateIfNoSound();
   }
@@ -725,20 +740,23 @@ class AudioHandler extends BaseAudioHandler {
 }
 
 class AudioHandlerProvider extends Provider<AudioHandler> {
+  // ignore: use_super_parameters
   AudioHandlerProvider({super.key, required AudioHandler value})
     : super.value(value: value);
 
-  static Future<AudioHandler>
-  createHandler() => AudioService.init<AudioHandler>(
-    builder: () => AudioHandler(),
-    config: const AudioServiceConfig(
-      androidNotificationIcon: kNotificationIcon,
-      notificationColor: kThemeSeedColor,
-      androidNotificationOngoing: true,
-      androidNotificationChannelId: '$kNotificationChannelBase.ima',
-      androidNotificationChannelName: 'Ima értesítés',
-      androidNotificationChannelDescription:
-          'Az ima elindítása alatt megjelenő értesítés, amivel az alkalmazás háttérbe kerülése esetén és a lezárt képernyőről is vezérelhető marad.',
-    ),
-  );
+  static Future<AudioHandler> createHandler() async {
+    if (kIsWeb) return AudioHandler();
+    return AudioService.init<AudioHandler>(
+      builder: () => AudioHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationIcon: kNotificationIcon,
+        notificationColor: kThemeSeedColor,
+        androidNotificationOngoing: true,
+        androidNotificationChannelId: '$kNotificationChannelBase.ima',
+        androidNotificationChannelName: 'Ima értesítés',
+        androidNotificationChannelDescription:
+            'Az ima elindítása alatt megjelenő értesítés, amivel az alkalmazás háttérbe kerülése esetén és a lezárt képernyőről is vezérelhető marad.',
+      ),
+    );
+  }
 }
