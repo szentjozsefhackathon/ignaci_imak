@@ -1,4 +1,4 @@
-import 'dart:async' show StreamSubscription;
+import 'dart:async' show StreamSubscription, unawaited;
 
 import 'package:flutter/material.dart';
 
@@ -24,8 +24,9 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   late final AudioHandler _audioHandler;
 
   int _currentPage = 0;
-  bool _isClosing = false;
+  final bool _isClosing = false;
   StreamSubscription? _playbackSubscription;
+  void Function()? _prayerEnded;
 
   @override
   void initState() {
@@ -43,13 +44,18 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     _currentPage = 0;
 
     _audioHandler = context.read<AudioHandler>();
+    _prayerEnded = () {
+      if (!mounted) return;
+      try {
+        Navigator.of(context).pop();
+      } catch (_) {}
+      try {
+        Navigator.of(context).pop();
+      } catch (_) {}
+    };
+    _audioHandler.onPrayerEnded = _prayerEnded;
     _playbackSubscription = _audioHandler.playbackState.listen((_) {
       if (!mounted || _isClosing) return;
-      if (_audioHandler.isFinished) {
-        _isClosing = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) => _close());
-        return;
-      }
       if (_audioHandler.prayerIsRunning) {
         if (_fabAnimationController.isDismissed) {
           _fabAnimationController.forward();
@@ -83,6 +89,12 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      await _audioHandler.initSession(
+        const AudioSessionConfiguration.speech().copyWith(
+          androidWillPauseWhenDucked: false,
+        ),
+      );
+      if (!mounted) return;
       await _audioHandler.loadPrayerVoices(
         context,
         widget.group,
@@ -90,19 +102,18 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
         prefs.prayerLength,
         widget.prayer.prayer.voiceOptions.indexOf(prefs.voiceChoice),
       );
-      await _audioHandler.initSession(
-        const AudioSessionConfiguration.speech().copyWith(
-          androidWillPauseWhenDucked: false,
-        ),
-      );
       await _audioHandler.setMuted(!prefs.prayerSoundEnabled);
     });
   }
 
   @override
   void dispose() {
+    if (_audioHandler.onPrayerEnded == null ||
+        _audioHandler.onPrayerEnded == _prayerEnded) {
+      _audioHandler.onPrayerEnded = null;
+    }
     _playbackSubscription?.cancel();
-    _audioHandler.stop();
+    unawaited(_audioHandler.stop().catchError((_) {}));
     _pageViewController.dispose();
     _fabAnimationController.dispose();
     _tabController.dispose();
@@ -139,10 +150,20 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   }
 
   Future<void> _close() async {
+    if (_audioHandler.onPrayerEnded == _prayerEnded) {
+      _audioHandler.onPrayerEnded = null;
+    }
     await _audioHandler.stop();
     if (mounted) {
-      int count = 0;
-      Navigator.popUntil(context, (_) => count++ >= 2);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        try {
+          Navigator.of(context).pop();
+        } catch (_) {}
+        try {
+          Navigator.of(context).pop();
+        } catch (_) {}
+      });
     }
   }
 

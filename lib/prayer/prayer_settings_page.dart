@@ -247,9 +247,11 @@ class _DownloadVoiceButtonState extends State<_DownloadVoiceButton> {
           return;
         }
         await context.read<SyncService>().downloadVoices(
-          voices: steps.map(
-            (step) => (name: step.voices[widget.voiceIndex], etag: null),
-          ),
+          voices: steps
+              .where((step) => widget.voiceIndex < step.voices.length)
+              .map(
+                (step) => (name: step.voices[widget.voiceIndex], etag: null),
+              ),
         );
         if (!mounted) {
           return;
