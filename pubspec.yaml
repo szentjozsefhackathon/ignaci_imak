@@ -51,6 +51,7 @@ dependencies:
   flutter_local_notifications: ^22.0.0
   flutter_localizations:
     sdk: flutter
+  flutter_native_splash: ^2.4.5
   flutter_timezone: ^5.1.0
   flutter_web_plugins:
     sdk: flutter
@@ -106,10 +107,6 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-    # - images/a_dot_burr.jpeg
-    # - images/a_dot_ham.jpeg
-    # - assets/images/ignacio_prayers_logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -136,6 +133,22 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_native_splash:
+  image: assets/icon/icon.png
+  color: "#BA0527"
+  color_dark: "#000000"
+  android: true
+  ios: true
+  web: false
+  android_gravity: center
+  ios_content_mode: center
+  fullscreen: true
+  android_12:
+    image: assets/icon/icon_foreground.png
+    color: "#BA0527"
+    color_dark: "#000000"
+    # icon_background_color: "#FFFFFF"
 
 sentry:
   org: szent-jozsef-hackathon
