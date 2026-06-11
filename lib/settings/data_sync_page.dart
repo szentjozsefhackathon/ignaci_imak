@@ -48,7 +48,7 @@ class DataSyncPage extends StatelessWidget {
                 stats: (all: srv.allVoices, downloaded: srv.downloadedVoices),
                 getVersion: (v) => v?.voices,
                 downloadAll: srv.downloadVoices,
-                updateExisting: srv.updateImages,
+                updateExisting: srv.updateVoices,
                 isSyncing: srv.status == SyncStatus.voiceDownload,
               ),
               Selector<SyncService, SyncStatus>(
@@ -131,6 +131,7 @@ class _DataSyncListItem extends StatelessWidget {
 
   Future<void> _downloadAll(BuildContext context) async {
     final success = await downloadAll().onError((_, _) => false);
+    await srv.updateStats();
     if (!context.mounted) {
       return;
     }
