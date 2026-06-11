@@ -27,7 +27,7 @@ class Versions extends Equatable {
     bool voices = false,
   }) => Versions(
     data: data ? serverVersions.data : '',
-    images: images ? serverVersions.data : '',
+    images: images ? serverVersions.images : '',
     voices: voices ? serverVersions.voices : '',
     timestamp: serverVersions.timestamp,
   );

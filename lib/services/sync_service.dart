@@ -27,6 +27,13 @@ enum SyncStatus {
 }
 
 typedef MediaWithEtag = ({String name, String? etag});
+typedef _DownloadResult = ({
+  MediaWithEtag file,
+  int? statusCode,
+  Uint8List? data,
+  String? etag,
+  Object? error,
+});
 
 class SyncService extends ChangeNotifier {
   SyncService() {
@@ -103,14 +110,9 @@ class SyncService extends ChangeNotifier {
     _allImages =
         await _db.managers.prayerGroups.count() +
         await _db.managers.prayers.count();
-    final voicesLengthField = _db.managers.prayerSteps.computedField(
-      (o) => o.voices.length,
-    );
     _allVoices = 0;
-    for (final (_, refs) in await _db.managers.prayerSteps.withFields([
-      voicesLengthField,
-    ]).get()) {
-      _allVoices += voicesLengthField.read(refs) ?? 0;
+    for (final step in await _db.managers.prayerSteps.get()) {
+      _allVoices += step.voices.length;
     }
     _allVoices += 1; // csengo.mp3
 
@@ -347,26 +349,55 @@ class SyncService extends ChangeNotifier {
     return success;
   }
 
-  Future<int?> _downloadImage(MediaWithEtag image) async {
-    final response = await _get<List<int>>(
-      Env.serverImagePath(image.name),
-      etag: image.etag,
-      responseType: ResponseType.bytes,
-    );
-    if (response?.data case final List<int> data
-        when response?.statusCode == HttpStatus.ok) {
-      await _db.managers.images.create(
-        (create) => create(
-          name: image.name,
-          data: Uint8List.fromList(data),
-          etag: Value.absentIfNull(
-            response?.headers.value(HttpHeaders.etagHeader),
-          ),
-        ),
-        mode: InsertMode.insertOrReplace,
+  Future<List<T>> _runBatched<T>(
+    List<MediaWithEtag> items,
+    Future<T> Function(MediaWithEtag) task, {
+    int batchSize = 5,
+  }) async {
+    final results = <T>[];
+    for (var i = 0; i < items.length; i += batchSize) {
+      final batch = items.skip(i).take(batchSize).toList();
+      results.addAll(await Future.wait(batch.map(task)));
+    }
+    return results;
+  }
+
+  Future<_DownloadResult> _fetchImageFile(MediaWithEtag image) async {
+    try {
+      final response = await _get<List<int>>(
+        Env.serverImagePath(image.name),
+        etag: image.etag,
+        responseType: ResponseType.bytes,
+      );
+      final data = response?.data;
+      final statusCode = response?.statusCode;
+      return (
+        file: image,
+        statusCode: statusCode,
+        data: data is List<int> && statusCode == HttpStatus.ok
+            ? Uint8List.fromList(data)
+            : null,
+        etag: response?.headers.value(HttpHeaders.etagHeader),
+        error: null,
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == HttpStatus.notFound) {
+        return (
+          file: image,
+          statusCode: e.response!.statusCode,
+          data: null,
+          etag: null,
+          error: null,
+        );
+      }
+      return (
+        file: image,
+        statusCode: e.response?.statusCode,
+        data: null,
+        etag: null,
+        error: e,
       );
     }
-    return response?.statusCode;
   }
 
   Future<bool> downloadImages({
@@ -395,38 +426,68 @@ class SyncService extends ChangeNotifier {
     _setStatus(SyncStatus.imageDownload);
     try {
       if (images == null) {
-        final etagMap = Map.fromEntries(
-          await _db.managers.images.map((i) => MapEntry(i.name, i.etag)).get(),
-        );
-        images = [
+        final etagMap = {
+          for (final i
+              in await _db.managers.images
+                  .map((i) => (name: i.name, etag: i.etag))
+                  .get())
+            i.name: i.etag,
+        };
+        final imageNames = <String>{
           ...await _db.managers.prayerGroups.map((g) => g.image).get(),
           ...await _db.managers.prayers.map((p) => p.image).get(),
-        ].map((name) => (name: name, etag: etagMap[name]));
+        };
+        images = imageNames.map((n) => (name: n, etag: etagMap[n])).toList();
       }
-      _log.fine('Downloading ${images.length} image(s)...');
+      final imageList = images.toList();
+      _log.fine('Downloading ${imageList.length} image(s)...');
+
+      // Phase 1: Network — download all files in parallel batches
+      final results = await _runBatched(imageList, _fetchImageFile);
+
+      // Phase 2: DB — process results (no transaction needed, each op is atomic)
       bool updateVersion = false;
-      success = await _db.transaction(() async {
-        bool success = true;
-        for (final image in images!) {
-          final status = await _downloadImage(image);
-          if (status == HttpStatus.ok) {
-            updateVersion = true;
-          } else if (status != HttpStatus.notModified) {
-            success = false;
-            if (stopOnError) {
-              break;
-            }
+      for (final r in results) {
+        if (r.error != null) {
+          _log.severe('Failed to download ${r.file.name}', r.error);
+          success = false;
+          if (stopOnError) {
+            break;
+          }
+          continue;
+        }
+        final status = r.statusCode;
+        if (status == HttpStatus.ok) {
+          await _db.managers.images.create(
+            (create) => create(
+              name: r.file.name,
+              data: r.data!,
+              etag: Value.absentIfNull(r.etag),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+          updateVersion = true;
+        } else if (status == HttpStatus.notModified) {
+          // no change
+        } else if (status == HttpStatus.notFound) {
+          _log.fine('Image ${r.file.name} no longer exists on server');
+          await _db.managers.images
+              .filter((i) => i.name.equals(r.file.name))
+              .delete();
+        } else if (status != null) {
+          success = false;
+          if (stopOnError) {
+            break;
           }
         }
-        if (updateVersion) {
-          await _prefs.setVersions(
-            _prefs.versions?.copyWith(images: v.data) ??
-                Versions.downloaded(v, images: true),
-          );
-          finalStatus = _isStatusIdleOrUpdate;
-        }
-        return success;
-      });
+      }
+      if (updateVersion) {
+        await _prefs.setVersions(
+          _prefs.versions?.copyWith(images: v.images) ??
+              Versions.downloaded(v, images: true),
+        );
+        finalStatus = _isStatusIdleOrUpdate;
+      }
     } catch (e, s) {
       _log.severe('Failed to download images', e, s);
       rethrow;
@@ -446,32 +507,59 @@ class SyncService extends ChangeNotifier {
         _log.warning('Cannot update images in $_status');
         return false;
     }
-    final downloaded = await _db.managers.images
-        .map((i) => (name: i.name, etag: i.etag))
-        .get();
-    return downloadImages(images: downloaded, stopOnError: stopOnError);
+    final etagMap = {
+      for (final i
+          in await _db.managers.images
+              .map((i) => (name: i.name, etag: i.etag))
+              .get())
+        i.name: i.etag,
+    };
+    final imageNames = <String>{
+      ...await _db.managers.prayerGroups.map((g) => g.image).get(),
+      ...await _db.managers.prayers.map((p) => p.image).get(),
+    };
+    return downloadImages(
+      images: imageNames.map((n) => (name: n, etag: etagMap[n])).toList(),
+      stopOnError: stopOnError,
+    );
   }
 
-  Future<int?> _downloadVoice(MediaWithEtag voice) async {
-    final response = await _get<List<int>>(
-      Env.serverVoicePath(voice.name),
-      etag: voice.etag,
-      responseType: ResponseType.bytes,
-    );
-    if (response?.data case final List<int> data
-        when response?.statusCode == HttpStatus.ok) {
-      await _db.managers.voices.create(
-        (create) => create(
-          name: voice.name,
-          data: Uint8List.fromList(data),
-          etag: Value.absentIfNull(
-            response?.headers.value(HttpHeaders.etagHeader),
-          ),
-        ),
-        mode: InsertMode.insertOrReplace,
+  Future<_DownloadResult> _fetchVoiceFile(MediaWithEtag voice) async {
+    try {
+      final response = await _get<List<int>>(
+        Env.serverVoicePath(voice.name),
+        etag: voice.etag,
+        responseType: ResponseType.bytes,
+      );
+      final data = response?.data;
+      final statusCode = response?.statusCode;
+      return (
+        file: voice,
+        statusCode: statusCode,
+        data: data is List<int> && statusCode == HttpStatus.ok
+            ? Uint8List.fromList(data)
+            : null,
+        etag: response?.headers.value(HttpHeaders.etagHeader),
+        error: null,
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == HttpStatus.notFound) {
+        return (
+          file: voice,
+          statusCode: e.response!.statusCode,
+          data: null,
+          etag: null,
+          error: null,
+        );
+      }
+      return (
+        file: voice,
+        statusCode: e.response?.statusCode,
+        data: null,
+        etag: null,
+        error: e,
       );
     }
-    return response?.statusCode;
   }
 
   Future<bool> downloadVoices({
@@ -500,39 +588,69 @@ class SyncService extends ChangeNotifier {
     _setStatus(SyncStatus.voiceDownload);
     try {
       if (voices == null) {
-        final etagMap = Map.fromEntries(
-          await _db.managers.voices.map((v) => MapEntry(v.name, v.etag)).get(),
-        );
-        voices = [
+        final etagMap = {
+          for (final v
+              in await _db.managers.voices
+                  .map((v) => (name: v.name, etag: v.etag))
+                  .get())
+            v.name: v.etag,
+        };
+        final voiceNames = <String>{
           for (final step in await _db.managers.prayerSteps.get())
             ...step.voices,
           'csengo.mp3',
-        ].map((name) => (name: name, etag: etagMap[name]));
+        };
+        voices = voiceNames.map((n) => (name: n, etag: etagMap[n])).toList();
       }
-      _log.fine('Downloading ${voices.length} image(s)...');
+      final voiceList = voices.toList();
+      _log.fine('Downloading ${voiceList.length} voice(s)...');
+
+      // Phase 1: Network — download all files in parallel batches
+      final results = await _runBatched(voiceList, _fetchVoiceFile);
+
+      // Phase 2: DB — process results (no transaction needed, each op is atomic)
       bool updateVersion = false;
-      success = await _db.transaction(() async {
-        bool success = true;
-        for (final voice in voices!) {
-          final status = await _downloadVoice(voice);
-          if (status == HttpStatus.ok) {
-            updateVersion = true;
-          } else if (status != HttpStatus.notModified) {
-            success = false;
-            if (stopOnError) {
-              break;
-            }
+      for (final r in results) {
+        if (r.error != null) {
+          _log.severe('Failed to download ${r.file.name}', r.error);
+          success = false;
+          if (stopOnError) {
+            break;
+          }
+          continue;
+        }
+        final status = r.statusCode;
+        if (status == HttpStatus.ok) {
+          await _db.managers.voices.create(
+            (create) => create(
+              name: r.file.name,
+              data: r.data!,
+              etag: Value.absentIfNull(r.etag),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+          updateVersion = true;
+        } else if (status == HttpStatus.notModified) {
+          // no change
+        } else if (status == HttpStatus.notFound) {
+          _log.fine('Voice ${r.file.name} no longer exists on server');
+          await _db.managers.voices
+              .filter((v) => v.name.equals(r.file.name))
+              .delete();
+        } else if (status != null) {
+          success = false;
+          if (stopOnError) {
+            break;
           }
         }
-        if (updateVersion) {
-          await _prefs.setVersions(
-            _prefs.versions?.copyWith(voices: v.data) ??
-                Versions.downloaded(v, voices: true),
-          );
-          finalStatus = _isStatusIdleOrUpdate;
-        }
-        return success;
-      });
+      }
+      if (updateVersion) {
+        await _prefs.setVersions(
+          _prefs.versions?.copyWith(voices: v.voices) ??
+              Versions.downloaded(v, voices: true),
+        );
+        finalStatus = _isStatusIdleOrUpdate;
+      }
     } catch (e, s) {
       _log.severe('Failed to download images', e, s);
       rethrow;
@@ -552,15 +670,21 @@ class SyncService extends ChangeNotifier {
         _log.warning('Cannot update voices in $_status');
         return false;
     }
-    final downloaded = [
-      ...await _db.managers.voices
-          .map((v) => (name: v.name, etag: v.etag))
-          .get(),
-    ];
-    if (!downloaded.any((v) => v.name == 'csengo.mp3')) {
-      downloaded.add((name: 'csengo.mp3', etag: null));
-    }
-    return downloadVoices(voices: downloaded, stopOnError: stopOnError);
+    final etagMap = {
+      for (final v
+          in await _db.managers.voices
+              .map((v) => (name: v.name, etag: v.etag))
+              .get())
+        v.name: v.etag,
+    };
+    final voiceNames = <String>{
+      for (final step in await _db.managers.prayerSteps.get()) ...step.voices,
+      'csengo.mp3',
+    };
+    return downloadVoices(
+      voices: voiceNames.map((n) => (name: n, etag: etagMap[n])).toList(),
+      stopOnError: stopOnError,
+    );
   }
 }
 
