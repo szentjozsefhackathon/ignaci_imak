@@ -98,8 +98,10 @@ class Routes {
           final args = context.getRouteArgument<List<Object>>();
           if (args != null) {
             return PrayerDescriptionPage(
-              group: args[0] as PrayerGroup,
-              prayer: args[1] as Prayer,
+              prayer: (
+                group: args[0] as PrayerGroup,
+                prayer: args[1] as Prayer,
+              ),
             );
           }
           final [groupSlug, prayerSlug] = uri.pathSegments;
@@ -121,10 +123,7 @@ class Routes {
                 if (data == null) {
                   return const _NotFoundPage();
                 }
-                return PrayerDescriptionPage(
-                  group: data.group,
-                  prayer: data.prayer,
-                );
+                return PrayerDescriptionPage(prayer: data);
               },
             ),
           );

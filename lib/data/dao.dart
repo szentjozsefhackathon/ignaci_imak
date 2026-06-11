@@ -76,13 +76,18 @@ class MediaDao extends DatabaseAccessor<Database> with _$MediaDaoMixin {
   Stream<Image?> watchImageByName(String name) =>
       db.managers.images.filter((g) => g.name(name)).watchSingleOrNull();
 
+  Future<Image> imageByName(String name) =>
+      db.managers.images.filter((g) => g.name(name)).getSingle();
+
   Stream<Map<String, bool>> watchVoiceOptionsOf(Prayer prayer) async* {
     final steps = await db.prayersDao.prayerStepsOf(prayer);
     final names = <String, Iterable<String>>{};
     final allNames = <String>[];
     for (final option in prayer.voiceOptions) {
       final voiceIndex = prayer.voiceOptions.indexOf(option);
-      final optionNames = steps.map((step) => step.voices[voiceIndex]);
+      final optionNames = steps
+          .where((step) => voiceIndex < step.voices.length)
+          .map((step) => step.voices[voiceIndex]);
       names[option] = optionNames;
       allNames.addAll(optionNames);
     }

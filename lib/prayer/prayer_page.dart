@@ -1,308 +1,256 @@
-import 'dart:async' show Timer;
-import 'dart:typed_data' show Uint8List;
+import 'dart:async' show StreamSubscription, unawaited;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:logging/logging.dart';
-import 'package:vibration/vibration.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../data/database.dart';
 import '../data/preferences.dart';
-import '../env.dart';
-import '../settings/dnd.dart' show Dnd;
+import '../services.dart';
 import 'prayer_text.dart';
 
 class PrayerPage extends StatefulWidget {
-  const PrayerPage({super.key, required this.data});
+  const PrayerPage({super.key, required this.group, required this.prayer});
 
-  final PrayerWithSteps data;
+  final PrayerGroup group;
+  final PrayerWithSteps prayer;
 
   @override
   State<PrayerPage> createState() => _PrayerPageState();
 }
 
 class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
-  static final log = Logger('PrayerPage');
-
-  late final AudioPlayer _audioPlayer;
-  late List<Duration> _nextPageTimes = [];
-  late Duration _remainingTime = Duration.zero;
-  late int _currentPage = 0;
-  bool _isRunning = false;
-  bool _isPaused = false;
   late final AnimationController _fabAnimationController;
-  Timer? _timer;
-
   late final PageController _pageViewController;
   late final TabController _tabController;
-  late final Preferences _prefs;
+  late final AudioHandler _audioHandler;
+
+  int _currentPage = 0;
+  final bool _isClosing = false;
+  StreamSubscription? _playbackSubscription;
+  void Function()? _prayerEnded;
 
   @override
   void initState() {
     super.initState();
-    _audioPlayer = AudioPlayer();
     _pageViewController = PageController();
     _tabController = TabController(
-      length: widget.data.steps.length,
+      length: widget.prayer.steps.length,
       vsync: this,
     );
-    _prefs = context.read<Preferences>();
     _fabAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
 
-    _startPrayer();
-    _tabController.addListener(() {
-      if (!mounted || _tabController.indexIsChanging) {
-        return;
-      }
-      setState(() => _currentPage = _tabController.index);
-      if (_prefs.prayerSoundEnabled) {
-        _pageAudioPlayer();
-      }
-    });
-  }
+    _currentPage = 0;
 
-  @override
-  void deactivate() {
-    context.read<Dnd>().restoreOriginal();
-    super.deactivate();
+    _audioHandler = context.read<AudioHandler>();
+    _prayerEnded = () {
+      if (!mounted) return;
+      try {
+        Navigator.of(context).pop();
+      } catch (_) {}
+      try {
+        Navigator.of(context).pop();
+      } catch (_) {}
+    };
+    _audioHandler.onPrayerEnded = _prayerEnded;
+    _playbackSubscription = _audioHandler.playbackState.listen((_) {
+      if (!mounted || _isClosing) return;
+      if (_audioHandler.prayerIsRunning) {
+        if (_fabAnimationController.isDismissed) {
+          _fabAnimationController.forward();
+        }
+      } else {
+        if (_fabAnimationController.isCompleted) {
+          _fabAnimationController.reverse();
+        }
+      }
+      final targetPage = _audioHandler.currentIndex;
+      if (targetPage != null && targetPage != _currentPage) {
+        _pageViewController.jumpToPage(targetPage);
+      }
+      setState(() {
+        _currentPage = targetPage ?? _currentPage;
+      });
+    });
+    final prefs = context.read<Preferences>();
+    _audioHandler.preparePrayer(prefs.prayerLength);
+    _audioHandler.startPrayerTimer();
+    _fabAnimationController.value = 1.0;
+
+    _tabController.addListener(() {
+      if (!mounted || _tabController.indexIsChanging) return;
+      final to = _tabController.index;
+      if (to >= widget.prayer.steps.length || to == _currentPage) return;
+
+      setState(() => _currentPage = to);
+      _audioHandler.skipToQueueItem(to);
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await _audioHandler.initSession(
+        const AudioSessionConfiguration.speech().copyWith(
+          androidWillPauseWhenDucked: false,
+        ),
+      );
+      if (!mounted) return;
+      await _audioHandler.loadPrayerVoices(
+        context,
+        widget.group,
+        widget.prayer,
+        prefs.prayerLength,
+        widget.prayer.prayer.voiceOptions.indexOf(prefs.voiceChoice),
+      );
+      await _audioHandler.setMuted(!prefs.prayerSoundEnabled);
+    });
   }
 
   @override
   void dispose() {
-    WakelockPlus.disable();
-    _audioPlayer.dispose();
-    _timer?.cancel();
+    if (_audioHandler.onPrayerEnded == null ||
+        _audioHandler.onPrayerEnded == _prayerEnded) {
+      _audioHandler.onPrayerEnded = null;
+    }
+    _playbackSubscription?.cancel();
+    unawaited(_audioHandler.stop().catchError((_) {}));
     _pageViewController.dispose();
+    _fabAnimationController.dispose();
     _tabController.dispose();
     super.dispose();
   }
 
-  void _startPrayer() {
-    _nextPageTimes = _getOptimalPageTimes();
-    _remainingTime = _prefs.prayerLength;
-    _startTimer();
-    if (_prefs.dnd) {
-      context.read<Dnd>().allowAlarmsOnly();
-    }
-    WakelockPlus.enable();
-    if (_prefs.prayerSoundEnabled) {
-      _pageAudioPlayer();
-    }
-    _fabAnimationController.forward();
-  }
-
-  void _startTimer() {
-    const timerPeriod = Duration(seconds: 1);
-    _timer = Timer.periodic(timerPeriod, (timer) {
-      if (_isPaused) {
-        timer.cancel();
-      } else {
-        _remainingTime -= timerPeriod;
-        if (_prefs.autoPageTurn) {
-          for (final time in _nextPageTimes) {
-            if (time == _remainingTime) {
-              final pageIndex = _nextPageTimes.indexOf(time);
-              // we're not going back
-              if (pageIndex > _currentPage) {
-                _updateCurrentPageIndex(pageIndex);
-                _vibrateIfNoSound();
-              }
-              break;
-            }
-          }
-        }
-        _isRunning = true;
-        setState(() {});
-      }
-      if (_remainingTime.inSeconds <= 0) {
-        timer.cancel();
-        _onTimerFinish();
-      }
-    });
-  }
-
-  Future<void> _onTimerFinish() async {
-    setState(() => _isRunning = false);
-    if (_prefs.prayerSoundEnabled) {
-      await _audioPlayer.pause();
-      await _loadAudio('csengo.mp3');
-      await _audioPlayer.setVolume(1);
-      await _audioPlayer.play();
-    }
-    _vibrateIfNoSound();
-    await WakelockPlus.disable();
-    if (mounted) {
-      await context.read<Dnd>().restoreOriginal();
-      _close();
-    }
-  }
-
-  void _close() {
-    if (mounted) {
-      int count = 0;
-      Navigator.popUntil(context, (_) => count++ >= 2);
-    }
-  }
-
-  Future<void> _loadAudio(String name) async {
-    try {
-      if (kIsWeb) {
-        await _audioPlayer.stop();
-        await _audioPlayer.setAudioSource(
-          AudioSource.uri(
-            Env.serverUri.replace(path: Env.serverVoicePath(name)),
+  Future<bool> _showExitConfirmation() async {
+    if (!mounted) return true;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ima leállítása'),
+        content: const Text('Biztosan le akarod állítani az imát?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Mégse'),
           ),
-          initialPosition: Duration.zero,
-        );
-      } else {
-        await context
-            .read<Database>()
-            .mediaDao
-            .voiceByName(name)
-            .then(
-              (audio) => _audioPlayer.setAudioSource(_BytesSource(audio.data)),
-            );
-      }
-    } catch (e, s) {
-      log.severe('Error loading $name', e, s);
-    }
-  }
-
-  Future<void> _pageAudioPlayer() async {
-    if (widget.data.prayer.voiceOptions.isEmpty) {
-      return;
-    }
-    await _audioPlayer.pause();
-    final voiceIndex = widget.data.prayer.voiceOptions.indexOf(
-      _prefs.voiceChoice,
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Leállítás'),
+          ),
+        ],
+      ),
     );
-    // match voices
-    final filename = widget.data.steps[_currentPage].voices[voiceIndex];
-    await _loadAudio(filename);
-    await _audioPlayer.setVolume(1);
-    if (_isPaused) {
-      await _audioPlayer.pause();
-    } else {
-      await _audioPlayer.play();
-    }
+    return result ?? false;
   }
 
-  List<Duration> _getOptimalPageTimes() {
-    final pageTimes = <Duration>[];
-    Duration totalFixTime = Duration.zero;
-    Duration totalFlexTime = Duration.zero;
-    for (final step in widget.data.steps) {
-      if (step.type == PrayerStepType.fix) {
-        totalFixTime += step.time;
-      } else if (step.type == PrayerStepType.flex) {
-        totalFlexTime += step.time;
-      }
+  Future<void> _requestClose() async {
+    if (!mounted) return;
+    final confirmed = await _showExitConfirmation();
+    if (!confirmed || !mounted) return;
+    await _close();
+  }
+
+  Future<void> _close() async {
+    if (_audioHandler.onPrayerEnded == _prayerEnded) {
+      _audioHandler.onPrayerEnded = null;
     }
-    final totalTimeForFlex = _prefs.prayerLength - totalFixTime;
-    Duration remainingTime = _prefs.prayerLength;
-    for (final step in widget.data.steps) {
-      if (step.type == PrayerStepType.fix) {
-        remainingTime -= step.time;
-      } else if (step.type == PrayerStepType.flex) {
-        remainingTime -= Duration(
-          seconds:
-              totalTimeForFlex.inSeconds *
-              step.time.inSeconds ~/
-              totalFlexTime.inSeconds,
-        );
-      }
-      pageTimes.add(remainingTime);
+    await _audioHandler.stop();
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        try {
+          Navigator.of(context).pop();
+        } catch (_) {}
+        try {
+          Navigator.of(context).pop();
+        } catch (_) {}
+      });
     }
-    pageTimes.removeLast();
-    return pageTimes;
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      leading: CloseButton(onPressed: _close),
-      title: AnimatedOpacity(
-        opacity: _isPaused ? 1.0 : .4,
-        duration: kThemeAnimationDuration,
-        child: Text(widget.data.prayer.title),
-      ),
-    ),
-    body: Column(
-      children: [
-        Expanded(
-          child: PageView.builder(
-            controller: _pageViewController,
-            itemCount: widget.data.steps.length,
-            onPageChanged: (index) => _tabController.index = index,
-            itemBuilder: (context, index) =>
-                PrayerText(widget.data.steps[index].description),
+  Widget build(BuildContext context) {
+    final remainingTime = _audioHandler.remainingTime;
+    final isRunning = _audioHandler.prayerIsRunning;
+    final isPaused = _audioHandler.isPausedByUser;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        await _requestClose();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: CloseButton(onPressed: _requestClose),
+          title: AnimatedOpacity(
+            opacity: isPaused ? 1.0 : .4,
+            duration: kThemeAnimationDuration,
+            child: Text(widget.prayer.prayer.title),
           ),
         ),
-        if (_remainingTime.inSeconds > 0)
-          AnimatedOpacity(
-            opacity: _isPaused ? 1.0 : .5,
-            duration: kThemeAnimationDuration,
-            child: Text(
-              "Hátralévő idő: ${_remainingTime.inMinutes}:${(_remainingTime.inSeconds % 60).toString().padLeft(2, '0')}",
-            ),
-          ),
-        Opacity(
-          opacity: .25,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: _PageIndicator(
-              tabController: _tabController,
-              currentPageIndex: _currentPage,
-              onUpdateCurrentPageIndex: _updateCurrentPageIndex,
-              hasFab: _remainingTime.inSeconds > 0,
-            ),
-          ),
-        ),
-      ],
-    ),
-    floatingActionButtonLocation: FloatingActionButtonLocation.miniEndFloat,
-    floatingActionButton: _remainingTime.inSeconds <= 0
-        ? null
-        : AnimatedOpacity(
-            opacity: _isPaused ? 1.0 : .5,
-            duration: kThemeAnimationDuration,
-            child: FloatingActionButton(
-              mini: true,
-              onPressed: _togglePlayPause,
-              tooltip: _isRunning ? 'Szünet' : 'Folytatás',
-              child: AnimatedIcon(
-                icon: AnimatedIcons.play_pause,
-                progress: _fabAnimationController,
+        body: Column(
+          children: [
+            Expanded(
+              child: PageView.builder(
+                controller: _pageViewController,
+                itemCount: widget.prayer.steps.length,
+                onPageChanged: (index) => _tabController.index = index,
+                itemBuilder: (context, index) =>
+                    PrayerText(widget.prayer.steps[index].description),
               ),
             ),
-          ),
-  );
+            if (remainingTime.inSeconds > 0)
+              AnimatedOpacity(
+                opacity: isPaused ? 1.0 : .5,
+                duration: kThemeAnimationDuration,
+                child: Text(
+                  'Hátralévő idő: ${remainingTime.inMinutes}:${(remainingTime.inSeconds % 60).toString().padLeft(2, '0')}',
+                ),
+              ),
+            Opacity(
+              opacity: .25,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: _PageIndicator(
+                  tabController: _tabController,
+                  currentPageIndex: _currentPage,
+                  onUpdateCurrentPageIndex: _updateCurrentPageIndex,
+                  hasFab: remainingTime.inSeconds > 0,
+                ),
+              ),
+            ),
+          ],
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.miniEndFloat,
+        floatingActionButton: remainingTime.inSeconds <= 0
+            ? null
+            : AnimatedOpacity(
+                opacity: isPaused ? 1.0 : .5,
+                duration: kThemeAnimationDuration,
+                child: FloatingActionButton(
+                  mini: true,
+                  onPressed: _togglePlayPause,
+                  tooltip: isRunning ? 'Szünet' : 'Folytatás',
+                  child: AnimatedIcon(
+                    icon: AnimatedIcons.play_pause,
+                    progress: _fabAnimationController,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
 
   void _togglePlayPause() {
-    if (_isRunning) {
-      _audioPlayer.pause();
-      _isPaused = true;
-      _isRunning = false;
-      _fabAnimationController.reverse();
+    if (_audioHandler.prayerIsRunning) {
+      _audioHandler.pause();
     } else {
-      _isPaused = false;
-      _startTimer();
-      _audioPlayer.play();
-      _fabAnimationController.forward();
+      _audioHandler.play();
     }
-    WakelockPlus.toggle(enable: !_isPaused);
-    setState(() {});
   }
 
   Future<void> _updateCurrentPageIndex(int index) async {
-    if (_tabController.indexIsChanging) {
-      return;
-    }
+    if (_tabController.indexIsChanging) return;
     _tabController.animateTo(
       index,
       duration: kThemeAnimationDuration,
@@ -313,15 +261,6 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       duration: kThemeAnimationDuration,
       curve: Curves.easeInOut,
     );
-  }
-
-  void _vibrateIfNoSound() {
-    if (kIsWeb) {
-      return;
-    }
-    if (widget.data.prayer.voiceOptions.isEmpty || !_prefs.prayerSoundEnabled) {
-      Vibration.vibrate();
-    }
   }
 }
 
@@ -346,7 +285,6 @@ class _PageIndicatorState extends State<_PageIndicator> {
   final ScrollController _scrollController = ScrollController();
   int? _lastScrolledIndex;
 
-  // each dot is about 24px wide (10-16 + padding/border)
   static const double _kDotWidth = 24;
 
   @override
@@ -448,25 +386,6 @@ class _PageIndicatorState extends State<_PageIndicator> {
           ),
         );
       },
-    );
-  }
-}
-
-class _BytesSource extends StreamAudioSource {
-  _BytesSource(this.bytes);
-
-  final Uint8List bytes;
-
-  @override
-  Future<StreamAudioResponse> request([int? start, int? end]) async {
-    start ??= 0;
-    end ??= bytes.length;
-    return StreamAudioResponse(
-      sourceLength: bytes.length,
-      contentLength: end - start,
-      offset: start,
-      stream: Stream.value(bytes.sublist(start, end)),
-      contentType: 'audio/mpeg',
     );
   }
 }

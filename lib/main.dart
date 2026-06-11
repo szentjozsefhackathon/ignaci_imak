@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
-import 'package:provider/provider.dart' show MultiProvider, Selector;
+import 'package:provider/provider.dart' show MultiProvider, Provider, Selector;
 import 'package:relative_time/relative_time.dart';
 import 'package:timezone/data/latest_all.dart' as tzdb;
 import 'package:timezone/timezone.dart'
@@ -24,7 +25,8 @@ import 'settings/focus_status.dart' show FocusStatusProvider;
 import 'theme.dart';
 
 void main() async {
-  SentryWidgetsFlutterBinding.ensureInitialized();
+  final widgetsBinding = SentryWidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
@@ -50,14 +52,26 @@ void main() async {
   if (prefs.sentryEnabled) {
     await initSentry();
   }
+  final audioHandler = await AudioHandlerProvider.createHandler();
+  Provider.debugCheckInvalidValueType = null;
 
-  runApp(SentryWidget(child: IgnacioPrayersApp(prefs: prefs)));
+  FlutterNativeSplash.remove();
+  runApp(
+    SentryWidget(
+      child: IgnacioPrayersApp(prefs: prefs, audioHandler: audioHandler),
+    ),
+  );
 }
 
 class IgnacioPrayersApp extends StatelessWidget {
-  const IgnacioPrayersApp({super.key, required this.prefs});
+  const IgnacioPrayersApp({
+    super.key,
+    required this.prefs,
+    required this.audioHandler,
+  });
 
   final Preferences prefs;
+  final AudioHandler audioHandler;
 
   @override
   Widget build(BuildContext context) => MultiProvider(
@@ -65,6 +79,7 @@ class IgnacioPrayersApp extends StatelessWidget {
       PreferencesProvider(prefs),
       DatabaseProvider(),
       SyncServiceProvider(),
+      AudioHandlerProvider(value: audioHandler),
       if (!kIsWeb) ...[
         NotificationsProvider(),
         if (Platform.isIOS) FocusStatusProvider(),

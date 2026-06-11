@@ -81,6 +81,7 @@ android/app/build/
 android/build/
 android/app/.cxx/
 android/.kotlin/
+android/local.properties
 
 # flutter_launcher_icons
 android/app/src/main/res/**/*launcher*.png
@@ -88,6 +89,13 @@ ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-*.png
 ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
 web/favicon.png
 web/icons/Icon-*.png
+
+# flutter_native_splash
+android/app/src/main/res/**/*splash*.png
+android/app/src/main/res/**/background.png
+ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage*.png
+ios/Runner/Assets.xcassets/LaunchBackground.imageset/
+web/splash/img/*.png
 
 .env
 key.properties
