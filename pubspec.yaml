@@ -34,7 +34,7 @@ dependencies:
   audio_session: any
   auto_size_text: ^3.0.0
   collection: ^1.16.0
-  connectivity_plus: ^7.1.1
+  connectivity_plus: ^7.2.0
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.9
