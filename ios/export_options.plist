@@ -17,7 +17,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>hu.jezsuita.ignaciima</key>
-        <string>YOUR_PROVISIONING_PROFILE_NAME</string>
+        <string>Ignaciima App Store Distribution</string>
     </dict>
 </dict>
 </plist>
