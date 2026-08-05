@@ -15,14 +15,14 @@ permissions:
   packages: write
 
 jobs:
-  # --- JOB 1: Web & Docker (Runs on Linux - Fast & Cheap) ---
+  # --- JOB 1: Web & Docker ---
   build-web-docker:
     name: Build Web & Push Docker
     runs-on: ubuntu-latest
     environment: deploy
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -38,10 +38,8 @@ jobs:
       - name: Create .env file
         uses: jakubcieslik99/secrets-vars-to-env-file-action@main
         with:
-          # This maps all your GitHub Secrets and Vars into the .env file
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
-          # Exclude internal GitHub noise
           exclude: FLUTTER_ROOT, PUB_CACHE, GHRC_TOKEN
 
       - name: Install dependencies
@@ -64,27 +62,27 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHRC_TOKEN }}
+          password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          # This should point to your Nginx Dockerfile in the flutter-web folder
           file: ./web/Dockerfile.prod
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/ignacio-flutter-web:latest
             ghcr.io/${{ github.repository_owner }}/ignacio-flutter-web:${{ github.sha }}
-          # This LINKs the package to your repo sidebar automatically
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
-  # --- JOB 2: Android (Runs on Linux) ---
+  # --- JOB 2: Android ---
   build-android:
     name: Build & Publish Android
     runs-on: ubuntu-latest
-    environment: teszt
+    environment: deploy
+    env:
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -108,10 +106,8 @@ jobs:
       - name: Create .env file
         uses: jakubcieslik99/secrets-vars-to-env-file-action@main
         with:
-          # This maps all your GitHub Secrets and Vars into the .env file
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
-          # Exclude internal GitHub noise
           exclude: FLUTTER_ROOT, PUB_CACHE, GHRC_TOKEN
 
       - name: Install dependencies
@@ -130,9 +126,10 @@ jobs:
           echo "storeFile=keystore.jks" >> android/key.properties
 
       - name: Build App Bundle
-        run: flutter build appbundle --release \
-          --build-name=${{ env.VERSION_NAME }} \
-          --build-number=${{ env.VERSION_CODE }}
+        run: |
+          flutter build appbundle --release \
+            --build-name=${{ env.VERSION_NAME }} \
+            --build-number=${{ env.VERSION_CODE }}
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
@@ -141,7 +138,7 @@ jobs:
           path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Upload to Google Play Console
-        if: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+        if: ${{ env.PLAY_SERVICE_ACCOUNT_JSON != '' }}
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -152,11 +149,15 @@ jobs:
           inAppUpdatePriority: 2
           userFraction: 0.1
 
-  # --- JOB 3: iOS (The only one that needs macOS) ---
+  # --- JOB 3: iOS ---
   build-ios:
     name: Build & Publish iOS
     runs-on: macos-latest
-    environment: teszt
+    environment: deploy
+    env:
+      IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+      IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+      APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -186,7 +187,7 @@ jobs:
           dart run flutter_native_splash:create
 
       - name: Import signing certificate
-        if: ${{ secrets.IOS_CERTIFICATE_BASE64 != '' }}
+        if: ${{ env.IOS_CERTIFICATE_BASE64 != '' }}
         run: |
           security create-keychain -p temp build.keychain
           security default-keychain -s build.keychain
@@ -199,43 +200,50 @@ jobs:
             -S apple-tool:,apple: -s -k temp build.keychain
 
       - name: Install provisioning profile
-        if: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+        if: ${{ env.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" \
             | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/ignaciima_appstore.mobileprovision
 
       - name: Build Release IPA
-        run: flutter build ipa --release \
-          --build-name=${{ env.VERSION_NAME }} \
-          --build-number=${{ env.VERSION_CODE }} \
-          --export-options-plist=ios/export_options.plist
+        run: |
+          flutter build ipa --release \
+            --build-name=${{ env.VERSION_NAME }} \
+            --build-number=${{ env.VERSION_CODE }} \
+            --export-options-plist=ios/export_options.plist
 
       - name: Compress and Upload iOS Artifact
         run: |
           cd build
           tar -czf ios_build.tar.gz ios
-      - uses: actions/upload-artifact@v7
+
+      - uses: actions/upload-artifact@v4
         with:
           name: ios-release
           path: build/ios_build.tar.gz
 
-      - name: Upload to App Store Connect
-        if: ${{ secrets.APP_STORE_KEY_ID != '' }}
+      - name: Setup App Store Connect API Key
+        if: ${{ env.APP_STORE_KEY_ID != '' }}
         run: |
-          xcrun altool --upload-app \
-            -f build/ios/ipa/Runner.ipa \
-            -t ios \
-            --apiKey ${{ secrets.APP_STORE_KEY_ID }} \
-            --apiIssuer ${{ secrets.APP_STORE_ISSUER_ID }} \
-            --verbose
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "${{ secrets.APP_STORE_KEY_CONTENT }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_KEY_ID }}.p8
 
-  # --- JOB 4: Create GitHub Release (Runs after others finish) ---
+      - name: Upload to App Store Connect
+        if: ${{ env.APP_STORE_KEY_ID != '' }}
+        run: |
+          xcrun notarytool submit build/ios/ipa/*.ipa \
+            --key-id ${{ secrets.APP_STORE_KEY_ID }} \
+            --issuer ${{ secrets.APP_STORE_ISSUER_ID }} \
+            --key ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_KEY_ID }}.p8 \
+            --wait
+
+  # --- JOB 4: Create GitHub Release ---
   create-release:
     name: Finalize GitHub Release
     needs: [build-android, build-ios]
     runs-on: ubuntu-latest
-    environment: teszt
+    environment: deploy
     steps:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
