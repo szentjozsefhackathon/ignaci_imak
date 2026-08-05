@@ -19,7 +19,7 @@ jobs:
   build-web-docker:
     name: Build Web & Push Docker
     runs-on: ubuntu-latest
-    environment: teszt
+    environment: deploy
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -30,6 +30,11 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Extract version from tag
+        run: |
+          echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
+
       - name: Create .env file
         uses: jakubcieslik99/secrets-vars-to-env-file-action@main
         with:
@@ -38,6 +43,7 @@ jobs:
           vars: ${{ toJSON(vars) }}
           # Exclude internal GitHub noise
           exclude: FLUTTER_ROOT, PUB_CACHE, GHRC_TOKEN
+
       - name: Install dependencies
         run: |
           flutter pub get
@@ -47,10 +53,11 @@ jobs:
 
       - name: Build Flutter Web
         run: |
-          # Custom scripts for your sqlite/drift setup
           dart tools/download_sqlite3_wasm.dart
           dart compile js -O4 web/drift_worker.dart --output web/drift_worker.js
-          flutter build web --release --base-href="/web-app/"
+          flutter build web --release --base-href="/web-app/" \
+            --build-name=${{ env.VERSION_NAME }} \
+            --build-number=${{ env.VERSION_CODE }}
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -75,7 +82,7 @@ jobs:
 
   # --- JOB 2: Android (Runs on Linux) ---
   build-android:
-    name: Build Android Bundle
+    name: Build & Publish Android
     runs-on: ubuntu-latest
     environment: teszt
     steps:
@@ -92,6 +99,12 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+
+      - name: Extract version from tag
+        run: |
+          echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
+
       - name: Create .env file
         uses: jakubcieslik99/secrets-vars-to-env-file-action@main
         with:
@@ -107,7 +120,7 @@ jobs:
           dart run build_runner build --delete-conflicting-outputs
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
-          
+
       - name: Decode keystore & Create properties
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
@@ -117,7 +130,9 @@ jobs:
           echo "storeFile=keystore.jks" >> android/key.properties
 
       - name: Build App Bundle
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release \
+          --build-name=${{ env.VERSION_NAME }} \
+          --build-number=${{ env.VERSION_CODE }}
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
@@ -125,9 +140,21 @@ jobs:
           name: android-release
           path: build/app/outputs/bundle/release/app-release.aab
 
+      - name: Upload to Google Play Console
+        if: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: hu.jezsuita.ignaciima
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: production
+          status: completed
+          inAppUpdatePriority: 2
+          userFraction: 0.1
+
   # --- JOB 3: iOS (The only one that needs macOS) ---
   build-ios:
-    name: Build iOS IPA
+    name: Build & Publish iOS
     runs-on: macos-latest
     environment: teszt
     steps:
@@ -138,23 +165,51 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+
+      - name: Extract version from tag
+        run: |
+          echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
+
       - name: Create .env file
         uses: jakubcieslik99/secrets-vars-to-env-file-action@main
         with:
-          # This maps all your GitHub Secrets and Vars into the .env file
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
-          # Exclude internal GitHub noise
           exclude: FLUTTER_ROOT, PUB_CACHE, GHRC_TOKEN
+
       - name: Install dependencies
         run: |
           flutter pub get
           dart run build_runner build --delete-conflicting-outputs
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
-          
-      - name: Build IPA (No Codesign)
-        run: flutter build ipa --no-codesign
+
+      - name: Import signing certificate
+        if: ${{ secrets.IOS_CERTIFICATE_BASE64 != '' }}
+        run: |
+          security create-keychain -p temp build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p temp build.keychain
+          echo "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 --decode > cert.p12
+          security import cert.p12 -k build.keychain \
+            -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple: -s -k temp build.keychain
+
+      - name: Install provisioning profile
+        if: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" \
+            | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/ignaciima_appstore.mobileprovision
+
+      - name: Build Release IPA
+        run: flutter build ipa --release \
+          --build-name=${{ env.VERSION_NAME }} \
+          --build-number=${{ env.VERSION_CODE }} \
+          --export-options-plist=ios/export_options.plist
 
       - name: Compress and Upload iOS Artifact
         run: |
@@ -164,6 +219,16 @@ jobs:
         with:
           name: ios-release
           path: build/ios_build.tar.gz
+
+      - name: Upload to App Store Connect
+        if: ${{ secrets.APP_STORE_KEY_ID != '' }}
+        run: |
+          xcrun altool --upload-app \
+            -f build/ios/ipa/Runner.ipa \
+            -t ios \
+            --apiKey ${{ secrets.APP_STORE_KEY_ID }} \
+            --apiIssuer ${{ secrets.APP_STORE_ISSUER_ID }} \
+            --verbose
 
   # --- JOB 4: Create GitHub Release (Runs after others finish) ---
   create-release:
@@ -179,5 +244,5 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: "android-release/*.aab,ios-release/*.tar.gz"
-          tag: "v0.0.${{ github.run_number }}"
-          token: ${{ secrets.GHRC_TOKEN }}
+          tag: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
