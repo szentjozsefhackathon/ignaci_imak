@@ -6,9 +6,6 @@ on:
     tags:
       - 'v*'
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 # Required for pushing to GitHub Container Registry (GHCR)
 permissions:
   contents: write
@@ -65,7 +62,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Docker Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./web/Dockerfile.prod
@@ -144,7 +141,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: hu.jezsuita.ignaciima
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          track: production
+          tracks: production
           status: completed
           inAppUpdatePriority: 2
           # userFraction: 0.1
@@ -206,12 +203,18 @@ jobs:
           echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" \
             | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/ignaciima_appstore.mobileprovision
 
-      - name: Build Release IPA
+      - name: Build Release IPA Archive
         run: |
           flutter build ipa --release --no-codesign \
             --build-name=${{ env.VERSION_NAME }} \
-            --build-number=${{ env.VERSION_CODE }} \
-            --export-options-plist=ios/export_options.plist
+            --build-number=${{ env.VERSION_CODE }}
+
+      - name: Export IPA File
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist ios/export_options.plist
 
       - name: Compress and Upload iOS Artifact
         run: |
@@ -232,11 +235,13 @@ jobs:
       - name: Upload to App Store Connect
         if: ${{ env.APP_STORE_KEY_ID != '' }}
         run: |
-          xcrun notarytool submit build/ios/ipa/*.ipa \
-            --key-id ${{ secrets.APP_STORE_KEY_ID }} \
-            --issuer ${{ secrets.APP_STORE_ISSUER_ID }} \
-            --key ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_KEY_ID }}.p8 \
-            --wait
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n 1)
+          echo "Found IPA at: $IPA_PATH"
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "${{ secrets.APP_STORE_KEY_ID }}" \
+            --apiIssuer "${{ secrets.APP_STORE_ISSUER_ID }}"
 
   # --- JOB 4: Create GitHub Release ---
   create-release:
