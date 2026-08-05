@@ -189,12 +189,17 @@ jobs:
           security create-keychain -p temp build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p temp build.keychain
+          
+          security list-keychains -d user -s build.keychain $(security list-keychains -d user | tr -d '"')
+
           echo "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 --decode > cert.p12
           security import cert.p12 -k build.keychain \
             -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" \
-            -T /usr/bin/codesign
+            -A -T /usr/bin/codesign -T /usr/bin/xcodebuild
+            
           security set-key-partition-list \
-            -S apple-tool:,apple: -s -k temp build.keychain
+            -S apple-tool:,apple:,codesign: -s -k temp build.keychain
+          security set-keychain-settings -lut 3600 build.keychain
 
       - name: Install provisioning profile
         if: ${{ env.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
