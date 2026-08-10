@@ -141,7 +141,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: hu.jezsuita.ignaciima
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          tracks: production
+          tracks: internal
           status: completed
           inAppUpdatePriority: 2
           # userFraction: 0.1
