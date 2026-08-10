@@ -248,15 +248,24 @@ jobs:
             --apiKey "${{ secrets.APP_STORE_KEY_ID }}" \
             --apiIssuer "${{ secrets.APP_STORE_ISSUER_ID }}"
 
-  # --- JOB 4: Create GitHub Release ---
+# --- JOB 4: Create GitHub Release ---
   create-release:
     name: Finalize GitHub Release
     needs: [build-android, build-ios]
     runs-on: ubuntu-latest
     environment: deploy
     steps:
-      - name: Download Artifacts
+      - name: Download Android Artifact
         uses: actions/download-artifact@v4
+        with:
+          name: android-release
+          path: android-release
+
+      - name: Download iOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-release
+          path: ios-release
 
       - name: Create Release
         uses: ncipollo/release-action@v1
