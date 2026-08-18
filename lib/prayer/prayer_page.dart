@@ -90,7 +90,13 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await _audioHandler.initSession(
-        const AudioSessionConfiguration.speech().copyWith(
+        const AudioSessionConfiguration(
+          avAudioSessionCategory: AVAudioSessionCategory.playback,
+          avAudioSessionMode: AVAudioSessionMode.defaultMode,
+          androidAudioAttributes: AndroidAudioAttributes(
+            contentType: AndroidAudioContentType.speech,
+            usage: AndroidAudioUsage.media,
+          ),
           androidWillPauseWhenDucked: false,
         ),
       );
