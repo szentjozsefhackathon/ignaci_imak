@@ -29,7 +29,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-  app_settings: ^7.0.0
+  app_settings: ^9.0.0
   audio_service: ^0.18.19
   audio_session: 0.2.4
   auto_size_text: ^3.0.0
@@ -40,7 +40,7 @@ dependencies:
   cupertino_icons: ^1.0.9
   device_info_plus: ^13.2.0
   diacritic: ^0.1.6
-  dio: 5.10.0
+  dio: ^5.11.0
   do_not_disturb: ^1.0.3
   drift: ^2.34.0
   drift_flutter: ^0.3.1
