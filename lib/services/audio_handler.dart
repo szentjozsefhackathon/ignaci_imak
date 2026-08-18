@@ -23,11 +23,6 @@ import '../theme.dart' show kThemeSeedColor;
 
 export 'package:audio_session/audio_session.dart';
 
-// https://pub.dev/packages/audio_service
-// https://github.com/yringler/inside-app/blob/master/just_audio_handlers/lib/src/handler_just_audio.dart
-// https://suragch.medium.com/background-audio-in-flutter-with-audio-service-and-just-audio-3cce17b4a7d
-// https://pub.dev/packages/just_audio_background
-
 class AudioHandler extends BaseAudioHandler {
   AudioHandler()
     : _player = AudioPlayer(),
@@ -61,6 +56,20 @@ class AudioHandler extends BaseAudioHandler {
   bool _prayerHasVoices = false;
   bool _soundMuted = false;
   Uri? _silenceUri;
+
+  /// Biztonságos Wakelock kezelés: elkapja a PlatformException-t,
+  /// ha az AudioService háttérben fut (amikor nincs aktív Foreground Activity).
+  Future<void> _setWakelock(bool enable) async {
+    try {
+      if (enable) {
+        await WakelockPlus.enable();
+      } else {
+        await WakelockPlus.disable();
+      }
+    } catch (_) {
+      // Háttérszerviz esetén elkerüljük az összeomlást.
+    }
+  }
 
   static Future<Uri> _ensureSilenceFile() async {
     final tempDir = await getTemporaryDirectory();
@@ -128,7 +137,7 @@ class AudioHandler extends BaseAudioHandler {
     _prayerStartTime = DateTime.now();
     _prayerElapsed = Duration.zero;
     _remainingTime = _prayerTotal;
-    unawaited(WakelockPlus.enable());
+    unawaited(_setWakelock(true));
     _startPrayerTimer();
   }
 
@@ -176,7 +185,7 @@ class AudioHandler extends BaseAudioHandler {
       }
       _pausedAt = null;
     }
-    unawaited(WakelockPlus.enable());
+    unawaited(_setWakelock(true));
     if (_prayerTimer == null) {
       _startPrayerTimer();
     }
@@ -207,7 +216,7 @@ class AudioHandler extends BaseAudioHandler {
   Future<void> pause() async {
     _paused = true;
     _pausedAt = DateTime.now();
-    unawaited(WakelockPlus.disable());
+    unawaited(_setWakelock(false));
     _prayerTimer?.cancel();
     _prayerTimer = null;
     _prayerIsRunning = false;
@@ -255,7 +264,7 @@ class AudioHandler extends BaseAudioHandler {
     _pausedAt = null;
     _paused = true;
     _prayerActive = false;
-    unawaited(WakelockPlus.disable());
+    unawaited(_setWakelock(false));
     try {
       await _player.stop();
     } catch (_) {}
@@ -275,7 +284,7 @@ class AudioHandler extends BaseAudioHandler {
     _prayerActive = false;
     _prayerTotal = Duration.zero;
     _prayerElapsed = Duration.zero;
-    unawaited(WakelockPlus.disable());
+    unawaited(_setWakelock(false));
     try {
       await _player.stop();
     } catch (_) {}
@@ -324,8 +333,12 @@ class AudioHandler extends BaseAudioHandler {
     _csengoUri = null;
     await _stopBgLoop();
     try {
+      await _player.stop();
       await _player.dispose();
     } catch (_) {}
+    // wait for Android AudioTrack / CCodec to completely stop
+    await Future.delayed(const Duration(milliseconds: 100));
+
     _player = AudioPlayer();
     _setupPlayerListener();
     await _cleanupTempFiles();
@@ -343,14 +356,12 @@ class AudioHandler extends BaseAudioHandler {
     if (!kIsWeb) {
       try {
         final csengo = await db.mediaDao.voiceByName('csengo.mp3');
-        if (true) {
-          final tempDir = await getTemporaryDirectory();
-          final file = File('${tempDir.path}/${_kTempFilePrefix}csengo.mp3');
-          if (!file.existsSync()) {
-            await file.writeAsBytes(csengo.data);
-          }
-          _csengoUri = file.uri;
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/${_kTempFilePrefix}csengo.mp3');
+        if (!file.existsSync()) {
+          await file.writeAsBytes(csengo.data);
         }
+        _csengoUri = file.uri;
       } catch (_) {}
     }
     _csengoUri ??= Env.serverUri.replace(
@@ -446,7 +457,7 @@ class AudioHandler extends BaseAudioHandler {
           MediaControl.pause,
           MediaControl.skipToNext,
         ],
-        androidCompactActionIndices: [0, 1, 2],
+        androidCompactActionIndices: const [0, 1, 2],
         playing: true,
         updatePosition: _prayerElapsed,
       ),
@@ -548,7 +559,7 @@ class AudioHandler extends BaseAudioHandler {
     _prayerHasVoices = false;
     _voiceUris = null;
     _autoPageTurn = false;
-    unawaited(WakelockPlus.disable());
+    unawaited(_setWakelock(false));
 
     try {
       await _player.stop();
@@ -700,7 +711,7 @@ class AudioHandler extends BaseAudioHandler {
 
   Future<void> _finishPrayer() async {
     _prayerIsRunning = false;
-    unawaited(WakelockPlus.disable());
+    unawaited(_setWakelock(false));
     await finish();
     _vibrateIfNoSound();
   }
