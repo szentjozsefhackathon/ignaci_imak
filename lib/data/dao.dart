@@ -64,6 +64,7 @@ class PrayersDao extends DatabaseAccessor<Database> with _$PrayersDaoMixin {
       .filter((s) => s.prayer.slug(prayer.slug))
       .orderBy((o) => o.index.asc())
       .get();
+
 }
 
 @DriftAccessor(tables: [PrayerSteps, Prayers, PrayerGroups])

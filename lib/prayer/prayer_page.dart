@@ -1,17 +1,26 @@
 import 'dart:async' show StreamSubscription, unawaited;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemNavigator;
 
 import '../data/database.dart';
 import '../data/preferences.dart';
+import '../routes.dart';
 import '../services/audio_handler.dart';
 import 'prayer_text.dart';
 
 class PrayerPage extends StatefulWidget {
-  const PrayerPage({super.key, required this.group, required this.prayer});
+  const PrayerPage({
+    super.key,
+    required this.group,
+    required this.prayer,
+    this.offset,
+  });
 
   final PrayerGroup group;
   final PrayerWithSteps prayer;
+  final PrayerOffset? offset;
 
   @override
   State<PrayerPage> createState() => _PrayerPageState();
@@ -25,15 +34,19 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
 
   int _currentPage = 0;
   final bool _isClosing = false;
+  bool _routeStateReady = false;
   StreamSubscription? _playbackSubscription;
   void Function()? _prayerEnded;
 
   @override
   void initState() {
     super.initState();
-    _pageViewController = PageController();
+
+    final initialPage = widget.offset?.page ?? 0;
+    _pageViewController = PageController(initialPage: initialPage);
     _tabController = TabController(
       length: widget.prayer.steps.length,
+      initialIndex: initialPage,
       vsync: this,
     );
     _fabAnimationController = AnimationController(
@@ -41,11 +54,14 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 500),
     );
 
-    _currentPage = 0;
+    _currentPage = initialPage;
 
     _audioHandler = context.read<AudioHandler>();
     _prayerEnded = () {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
+      _clearRouteState();
       try {
         Navigator.of(context).pop();
       } catch (_) {}
@@ -55,7 +71,9 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     };
     _audioHandler.onPrayerEnded = _prayerEnded;
     _playbackSubscription = _audioHandler.playbackState.listen((_) {
-      if (!mounted || _isClosing) return;
+      if (!mounted || _isClosing) {
+        return;
+      }
       if (_audioHandler.prayerIsRunning) {
         if (_fabAnimationController.isDismissed) {
           _fabAnimationController.forward();
@@ -72,23 +90,29 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       setState(() {
         _currentPage = targetPage ?? _currentPage;
       });
+      _updateRouteState();
     });
     final prefs = context.read<Preferences>();
     _audioHandler.preparePrayer(prefs.prayerLength);
-    _audioHandler.startPrayerTimer();
     _fabAnimationController.value = 1.0;
 
     _tabController.addListener(() {
-      if (!mounted || _tabController.indexIsChanging) return;
+      if (!mounted || _tabController.indexIsChanging) {
+        return;
+      }
       final to = _tabController.index;
-      if (to >= widget.prayer.steps.length || to == _currentPage) return;
+      if (to >= widget.prayer.steps.length || to == _currentPage) {
+        return;
+      }
 
       setState(() => _currentPage = to);
       _audioHandler.skipToQueueItem(to);
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       await _audioHandler.initSession(
         const AudioSessionConfiguration(
           avAudioSessionCategory: AVAudioSessionCategory.playback,
@@ -100,7 +124,9 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
           androidWillPauseWhenDucked: false,
         ),
       );
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       await _audioHandler.loadPrayerVoices(
         context,
         widget.group,
@@ -108,6 +134,15 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
         prefs.prayerLength,
         widget.prayer.prayer.voiceOptions.indexOf(prefs.voiceChoice),
       );
+      if (!mounted) {
+        return;
+      }
+      await _audioHandler.skipToQueueItem(initialPage, resetTimer: false);
+      _audioHandler.startPrayerTimer(
+        elapsed: widget.offset?.elapsed ?? Duration.zero,
+      );
+      _routeStateReady = true;
+      _updateRouteState();
       await _audioHandler.setMuted(!prefs.prayerSoundEnabled);
     });
   }
@@ -127,7 +162,9 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   }
 
   Future<bool> _showExitConfirmation() async {
-    if (!mounted) return true;
+    if (!mounted) {
+      return true;
+    }
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -149,9 +186,13 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   }
 
   Future<void> _requestClose() async {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     final confirmed = await _showExitConfirmation();
-    if (!confirmed || !mounted) return;
+    if (!confirmed || !mounted) {
+      return;
+    }
     await _close();
   }
 
@@ -160,9 +201,12 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       _audioHandler.onPrayerEnded = null;
     }
     await _audioHandler.stop();
+    _clearRouteState();
     if (mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         try {
           Navigator.of(context).pop();
         } catch (_) {}
@@ -171,6 +215,33 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
         } catch (_) {}
       });
     }
+  }
+
+  void _updateRouteState() {
+    if (!kIsWeb || !_routeStateReady) {
+      return;
+    }
+    SystemNavigator.routeInformationUpdated(
+      uri: Uri.parse(
+        Routes.prayerState(
+          widget.group,
+          widget.prayer.prayer,
+          page: _currentPage,
+          elapsed: _audioHandler.prayerElapsed,
+        ),
+      ),
+      replace: true,
+    );
+  }
+
+  void _clearRouteState() {
+    if (!kIsWeb) {
+      return;
+    }
+    SystemNavigator.routeInformationUpdated(
+      uri: Uri.parse(Routes.prayer(widget.group, widget.prayer.prayer)),
+      replace: true,
+    );
   }
 
   @override
@@ -182,7 +253,9 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
+        if (didPop) {
+          return;
+        }
         await _requestClose();
       },
       child: Scaffold(
@@ -256,7 +329,9 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   }
 
   Future<void> _updateCurrentPageIndex(int index) async {
-    if (_tabController.indexIsChanging) return;
+    if (_tabController.indexIsChanging) {
+      return;
+    }
     _tabController.animateTo(
       index,
       duration: kThemeAnimationDuration,

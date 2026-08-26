@@ -116,7 +116,9 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   Future<void> _startBgLoop() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      return;
+    }
     final player = _bgPlayer!;
     final silenceUri = await _ensureSilenceFile();
     await player.setAudioSource(AudioSource.uri(silenceUri));
@@ -133,10 +135,10 @@ class AudioHandler extends BaseAudioHandler {
     _remainingTime = total;
   }
 
-  void startPrayerTimer() {
-    _prayerStartTime = DateTime.now();
-    _prayerElapsed = Duration.zero;
-    _remainingTime = _prayerTotal;
+  void startPrayerTimer({Duration elapsed = Duration.zero}) {
+    _prayerElapsed = elapsed.clamp(Duration.zero, _prayerTotal);
+    _prayerStartTime = DateTime.now().subtract(_prayerElapsed);
+    _remainingTime = _prayerTotal - _prayerElapsed;
     unawaited(_setWakelock(true));
     _startPrayerTimer();
   }
@@ -249,6 +251,7 @@ class AudioHandler extends BaseAudioHandler {
   bool get isFinished => _isFinished;
 
   Duration get remainingTime => _remainingTime;
+  Duration get prayerElapsed => _prayerElapsed;
   int get prayerCurrentPage => _prayerCurrentPage;
   bool get prayerIsRunning => _prayerIsRunning;
 
@@ -298,7 +301,9 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   Future<void> _cleanupTempFiles() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      return;
+    }
     final tempDir = await getTemporaryDirectory();
     final tempFiles = tempDir
         .list(followLinks: false)
@@ -525,13 +530,13 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   @override
-  Future<void> skipToQueueItem(int index) async {
+  Future<void> skipToQueueItem(int index, {bool resetTimer = true}) async {
     if (queue.valueOrNull == null || index >= queue.value.length) {
       return;
     }
     _currentIndex = index;
     _prayerCurrentPage = index;
-    if (index < _pageStartTimes.length) {
+    if (resetTimer && index < _pageStartTimes.length) {
       _remainingTime = _pageStartTimes[index];
       final now = DateTime.now();
       _prayerStartTime = now.subtract(_prayerTotal - _remainingTime);
@@ -616,7 +621,9 @@ class AudioHandler extends BaseAudioHandler {
     List<PrayerStep> steps,
     Duration total,
   ) {
-    if (steps.isEmpty) return [];
+    if (steps.isEmpty) {
+      return [];
+    }
 
     Duration totalFix = Duration.zero;
     Duration totalFlex = Duration.zero;
@@ -717,7 +724,9 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   void _vibrateIfNoSound() {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      return;
+    }
     if (!_prayerHasVoices || _soundMuted) {
       Vibration.vibrate();
     }
@@ -750,13 +759,30 @@ class AudioHandler extends BaseAudioHandler {
   );
 }
 
+extension DurationExtensions on Duration {
+  Duration clamp(Duration min, Duration max) {
+    assert(
+      min.compareTo(max) <= 0,
+      'Duration min has to be shorter than max\n(min: $min - max: $max)',
+    );
+    if (compareTo(min).isNegative) {
+      return min;
+    } else if (max.compareTo(this).isNegative) {
+      return max;
+    }
+    return this;
+  }
+}
+
 class AudioHandlerProvider extends Provider<AudioHandler> {
   // ignore: use_super_parameters
   AudioHandlerProvider({super.key, required AudioHandler value})
     : super.value(value: value);
 
   static Future<AudioHandler> createHandler() async {
-    if (kIsWeb) return AudioHandler();
+    if (kIsWeb) {
+      return AudioHandler();
+    }
     return AudioService.init<AudioHandler>(
       builder: () => AudioHandler(),
       config: const AudioServiceConfig(
