@@ -531,7 +531,7 @@ class AudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> skipToQueueItem(int index, {bool resetTimer = true}) async {
-    if (queue.valueOrNull == null || index >= queue.value.length) {
+    if (queue.valueOrNull == null || index < 0 || index >= queue.value.length) {
       return;
     }
     _currentIndex = index;
