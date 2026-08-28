@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 
 import '../data/database.dart';
 import 'prayer_app_bar.dart';
@@ -19,14 +20,7 @@ class _PrayerDescriptionPageState extends State<PrayerDescriptionPage> {
   static const _wideLayoutBreakpoint = 900.0;
 
   final _scrollController = ScrollController();
-  final _settingsKey = GlobalKey();
-  bool _settingsVisible = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_updateSettingsVisibility);
-  }
+  bool _showingSettings = false;
 
   @override
   void dispose() {
@@ -34,24 +28,14 @@ class _PrayerDescriptionPageState extends State<PrayerDescriptionPage> {
     super.dispose();
   }
 
-  void _updateSettingsVisibility() {
-    final renderBox =
-        _settingsKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || !mounted) return;
-    final visible =
-        renderBox.localToGlobal(Offset.zero).dy <
-        MediaQuery.sizeOf(context).height - kMinInteractiveDimension * 2;
-    if (visible != _settingsVisible) {
-      setState(() => _settingsVisible = visible);
-    }
-  }
-
   Future<void> _onFabPressed() async {
     if (_settingsAreShown) {
       final steps = await context.read<Database>().prayersDao.prayerStepsOf(
         widget.prayer.prayer,
       );
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -64,9 +48,9 @@ class _PrayerDescriptionPageState extends State<PrayerDescriptionPage> {
       return;
     }
 
-    setState(() => _settingsVisible = true);
-    await Scrollable.ensureVisible(
-      _settingsKey.currentContext!,
+    setState(() => _showingSettings = true);
+    await _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
     );
@@ -74,89 +58,88 @@ class _PrayerDescriptionPageState extends State<PrayerDescriptionPage> {
 
   bool get _settingsAreShown =>
       MediaQuery.sizeOf(context).width >= _wideLayoutBreakpoint ||
-      _settingsVisible;
+      _showingSettings;
 
-  Widget _description() => PrayerText(
-    widget.prayer.prayer.description,
-    minFontSize: PrayerText.kDefaultFontSize,
-    padding: EdgeInsets.zero,
-  );
+  bool _onScroll(ScrollNotification notification) {
+    final scrollingUp =
+        notification is UserScrollNotification &&
+        notification.direction == ScrollDirection.forward;
+    final reachedBottom =
+        notification is ScrollUpdateNotification &&
+        notification.metrics.extentAfter == 0;
+    final showingSettings = reachedBottom || (_showingSettings && !scrollingUp);
 
-  Widget _settings() => Column(
-    key: _settingsKey,
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: Text(
-          'Ima beállítása',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-      ),
-      PrayerSettings(prayer: widget.prayer),
-    ],
-  );
+    if (showingSettings != _showingSettings) {
+      setState(() => _showingSettings = showingSettings);
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
     final appBarOptions = PrayerAppBarOptions(context, true);
 
     return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          PrayerAppBar.prayer(
-            group: widget.prayer.group,
-            prayer: widget.prayer.prayer,
-            options: appBarOptions,
-          ),
-        ],
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth >= _wideLayoutBreakpoint) {
-              return ListView(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(
-                  24,
-                  32,
-                  24,
-                  kMinInteractiveDimension * 2,
-                ),
-                children: [
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1200),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: _description(),
-                            ),
-                          ),
-                          const SizedBox(width: 32),
-                          Expanded(child: _settings()),
-                        ],
+      body: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            PrayerAppBar.prayer(
+              group: widget.prayer.group,
+              prayer: widget.prayer.prayer,
+              options: appBarOptions,
+            ),
+            SliverToBoxAdapter(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth >= _wideLayoutBreakpoint) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        24,
+                        32,
+                        24,
+                        kMinInteractiveDimension * 2,
                       ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1200),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: _buildDescription(),
+                                ),
+                              ),
+                              const Expanded(child: SizedBox(width: 32)),
+                              Expanded(child: _buildSettings(rounded: true)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(
+                      bottom: kMinInteractiveDimension * 2,
                     ),
-                  ),
-                ],
-              );
-            }
-            return ListView(
-              controller: _scrollController,
-              padding: const EdgeInsets.only(
-                bottom: kMinInteractiveDimension * 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 32, 16, 48),
+                          child: _buildDescription(),
+                        ),
+                        _buildSettings(),
+                      ],
+                    ),
+                  );
+                },
               ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 32, 16, 48),
-                  child: _description(),
-                ),
-                _settings(),
-              ],
-            );
-          },
+            ),
+          ],
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -171,4 +154,29 @@ class _PrayerDescriptionPageState extends State<PrayerDescriptionPage> {
       ),
     );
   }
+
+  Widget _buildDescription() => PrayerText(
+    widget.prayer.prayer.description,
+    minFontSize: PrayerText.kDefaultFontSize,
+    padding: EdgeInsets.zero,
+  );
+
+  Widget _buildSettings({bool rounded = false}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Text(
+          'Ima beállítása',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+      ),
+      ListTileTheme.merge(
+        shape: rounded
+            ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+            : null,
+        child: PrayerSettings(prayer: widget.prayer),
+      ),
+    ],
+  );
 }
