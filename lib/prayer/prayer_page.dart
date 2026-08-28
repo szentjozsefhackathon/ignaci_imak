@@ -33,7 +33,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   late final AudioHandler _audioHandler;
 
   int _currentPage = 0;
-  final bool _isClosing = false;
+  bool _isClosing = false;
   StreamSubscription? _playbackSubscription;
   void Function()? _prayerEnded;
 
@@ -56,16 +56,18 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     _currentPage = initialPage;
 
     _audioHandler = context.read<AudioHandler>();
-    _prayerEnded = () {
+    _prayerEnded = () async {
       if (!mounted) {
         return;
       }
-      _clearRouteState();
+      _isClosing = true;
+      await _playbackSubscription?.cancel();
+      await _clearRouteState();
+      if (!mounted) {
+        return;
+      }
       try {
-        Navigator.of(context).pop();
-      } catch (_) {}
-      try {
-        Navigator.of(context).pop();
+        Navigator.pop(context);
       } catch (_) {}
     };
     _audioHandler.onPrayerEnded = _prayerEnded;
@@ -198,21 +200,20 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   }
 
   Future<void> _close() async {
+    _isClosing = true;
     if (_audioHandler.onPrayerEnded == _prayerEnded) {
       _audioHandler.onPrayerEnded = null;
     }
+    await _playbackSubscription?.cancel();
     await _audioHandler.stop();
-    _clearRouteState();
+    await _clearRouteState();
     if (mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
           return;
         }
         try {
-          Navigator.of(context).pop();
-        } catch (_) {}
-        try {
-          Navigator.of(context).pop();
+          Navigator.pop(context);
         } catch (_) {}
       });
     }
@@ -235,11 +236,11 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     );
   }
 
-  void _clearRouteState() {
+  Future<void> _clearRouteState() async {
     if (!kIsWeb) {
       return;
     }
-    SystemNavigator.routeInformationUpdated(
+    await SystemNavigator.routeInformationUpdated(
       uri: Uri.parse(Routes.prayer(widget.group, widget.prayer.prayer)),
       replace: true,
     );
