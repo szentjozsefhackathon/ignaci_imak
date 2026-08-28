@@ -34,7 +34,6 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
 
   int _currentPage = 0;
   final bool _isClosing = false;
-  bool _routeStateReady = false;
   StreamSubscription? _playbackSubscription;
   void Function()? _prayerEnded;
 
@@ -94,6 +93,9 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     });
     final prefs = context.read<Preferences>();
     _audioHandler.preparePrayer(prefs.prayerLength);
+    _audioHandler.startPrayerTimer(
+      elapsed: widget.offset?.elapsed ?? Duration.zero,
+    );
     _fabAnimationController.value = 1.0;
 
     _tabController.addListener(() {
@@ -113,6 +115,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       if (!mounted) {
         return;
       }
+      _updateRouteState();
       await _audioHandler.initSession(
         const AudioSessionConfiguration(
           avAudioSessionCategory: AVAudioSessionCategory.playback,
@@ -138,11 +141,6 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
         return;
       }
       await _audioHandler.skipToQueueItem(initialPage, resetTimer: false);
-      _audioHandler.startPrayerTimer(
-        elapsed: widget.offset?.elapsed ?? Duration.zero,
-      );
-      _routeStateReady = true;
-      _updateRouteState();
       await _audioHandler.setMuted(!prefs.prayerSoundEnabled);
     });
   }
@@ -218,7 +216,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   }
 
   void _updateRouteState() {
-    if (!kIsWeb || !_routeStateReady) {
+    if (!kIsWeb) {
       return;
     }
     SystemNavigator.routeInformationUpdated(

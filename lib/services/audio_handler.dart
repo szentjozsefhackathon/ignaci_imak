@@ -131,6 +131,9 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   void preparePrayer(Duration total) {
+    _paused = false;
+    _pausedAt = null;
+    _prayerElapsed = Duration.zero;
     _prayerTotal = total;
     _remainingTime = total;
   }
@@ -334,7 +337,6 @@ class AudioHandler extends BaseAudioHandler {
     int voiceIndex,
   ) async {
     _paused = false;
-    _prayerElapsed = Duration.zero;
     _csengoUri = null;
     await _stopBgLoop();
     try {
