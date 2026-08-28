@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -31,7 +33,16 @@ void main() async {
 
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
-    debugPrint('${record.level.name}: ${record.time}: ${record.message}');
+    developer.log(
+      record.message,
+      level: record.level.value,
+      time: record.time,
+      name: record.loggerName,
+      error: record.error,
+      stackTrace: record.stackTrace,
+      sequenceNumber: record.sequenceNumber,
+      zone: record.zone,
+    );
   });
 
   if (kIsWeb) {
