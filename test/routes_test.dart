@@ -58,10 +58,10 @@ void main() {
     });
 
     test('rejects malformed, negative and unusable parameters', () {
-      expect(
-        Routes.prayerOffset(Uri.parse('/group/prayer?p=x&t=12'), 3),
-        (page: 0, elapsed: const Duration(seconds: 12)),
-      );
+      expect(Routes.prayerOffset(Uri.parse('/group/prayer?p=x&t=12'), 3), (
+        page: 0,
+        elapsed: const Duration(seconds: 12),
+      ));
       expect(
         Routes.prayerOffset(Uri.parse('/group/prayer?p=-1&t=12'), 3),
         isNull,
@@ -70,10 +70,7 @@ void main() {
         Routes.prayerOffset(Uri.parse('/group/prayer?p=0&t=x'), 3),
         isNull,
       );
-      expect(
-        Routes.prayerOffset(Uri.parse('/group/prayer?p=0'), 3),
-        isNull,
-      );
+      expect(Routes.prayerOffset(Uri.parse('/group/prayer?p=0'), 3), isNull);
       expect(
         Routes.prayerOffset(Uri.parse('/group/prayer?p=0&t=12'), 0),
         isNull,
