@@ -492,7 +492,12 @@ class AudioHandler extends BaseAudioHandler {
     final uri = _voiceUris![index];
     if (uri.toString().isEmpty) {
       mediaItem.add(queue.value[index]);
-      await _player.stop();
+      if (kIsWeb) {
+        // stop would end the media session and remove the notification here
+        await _player.pause();
+      } else {
+        await _player.stop();
+      }
       return;
     }
     if (uri.scheme == 'file' && !File(uri.toFilePath()).existsSync()) {
@@ -501,7 +506,7 @@ class AudioHandler extends BaseAudioHandler {
     }
     try {
       if (kIsWeb) {
-        await _player.stop();
+        await _player.pause();
       }
       await _player.setAudioSource(AudioSource.uri(uri));
       if (uri == _silenceUri) {
