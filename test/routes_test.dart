@@ -28,6 +28,15 @@ void main() {
         ),
         '/group-title/prayer-title?p=2&t=65',
       );
+      expect(
+        Routes.prayerState(
+          prayerGroup,
+          prayer,
+          page: 2,
+          elapsed: const Duration(milliseconds: 65001),
+        ),
+        '/group-title/prayer-title?p=2&t=66',
+      );
     });
   });
 

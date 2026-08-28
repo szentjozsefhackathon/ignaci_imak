@@ -130,12 +130,13 @@ class AudioHandler extends BaseAudioHandler {
     await _bgPlayer?.stop();
   }
 
-  void preparePrayer(Duration total) {
+  void preparePrayer(Duration total, {Duration elapsed = Duration.zero}) {
     _paused = false;
     _pausedAt = null;
-    _prayerElapsed = Duration.zero;
     _prayerTotal = total;
-    _remainingTime = total;
+    _prayerElapsed = elapsed.clamp(Duration.zero, total);
+    _remainingTime = total - _prayerElapsed;
+    _prayerIsRunning = true;
   }
 
   void startPrayerTimer({Duration elapsed = Duration.zero}) {

@@ -29,7 +29,11 @@ class Routes {
     required Duration elapsed,
   }) => Uri(
     path: Routes.prayer(group, prayer),
-    queryParameters: {'p': '$page', 't': '${elapsed.inSeconds}'},
+    queryParameters: {
+      'p': '$page',
+      't':
+          '${(elapsed.inMicroseconds + Duration.microsecondsPerSecond - 1) ~/ Duration.microsecondsPerSecond}',
+    },
   ).toString();
 
   static PrayerOffset? prayerOffset(Uri uri, int pageCount) {
