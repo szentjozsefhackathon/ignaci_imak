@@ -395,7 +395,8 @@ class AudioHandler extends BaseAudioHandler {
           if (step.voices.isEmpty) {
             return MediaItem(
               id: '__silence__',
-              album: '${p.prayer.title} · ${group.title}',
+              album: p.prayer.title,
+              artist: group.title,
               title: step.description,
               artUri: imageUri,
               duration: totalDuration,
@@ -405,7 +406,8 @@ class AudioHandler extends BaseAudioHandler {
           final name = step.voices[voiceIdx];
           return MediaItem(
             id: name,
-            album: '${p.prayer.title} · ${group.title}',
+            album: p.prayer.title,
+            artist: group.title,
             title: step.description,
             artUri: imageUri,
             duration: totalDuration,
@@ -782,21 +784,17 @@ class AudioHandlerProvider extends Provider<AudioHandler> {
   AudioHandlerProvider({super.key, required AudioHandler value})
     : super.value(value: value);
 
-  static Future<AudioHandler> createHandler() async {
-    if (kIsWeb) {
-      return AudioHandler();
-    }
-    return AudioService.init<AudioHandler>(
-      builder: () => AudioHandler(),
-      config: const AudioServiceConfig(
-        androidNotificationIcon: kNotificationIcon,
-        notificationColor: kThemeSeedColor,
-        androidNotificationOngoing: true,
-        androidNotificationChannelId: '$kNotificationChannelBase.ima',
-        androidNotificationChannelName: 'Ima értesítés',
-        androidNotificationChannelDescription:
-            'Az ima elindítása alatt megjelenő értesítés, amivel az alkalmazás háttérbe kerülése esetén és a lezárt képernyőről is vezérelhető marad.',
-      ),
-    );
-  }
+  static Future<AudioHandler>
+  createHandler() => AudioService.init<AudioHandler>(
+    builder: () => AudioHandler(),
+    config: const AudioServiceConfig(
+      androidNotificationIcon: kNotificationIcon,
+      notificationColor: kThemeSeedColor,
+      androidNotificationOngoing: true,
+      androidNotificationChannelId: '$kNotificationChannelBase.ima',
+      androidNotificationChannelName: 'Ima értesítés',
+      androidNotificationChannelDescription:
+          'Az ima elindítása alatt megjelenő értesítés, amivel az alkalmazás háttérbe kerülése esetén és a lezárt képernyőről is vezérelhető marad.',
+    ),
+  );
 }
