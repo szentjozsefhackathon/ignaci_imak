@@ -136,9 +136,8 @@ class _DataSyncListItem extends StatelessWidget {
       return;
     }
     if (success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$title letöltve')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('$title letöltve')));
     } else {
       ScaffoldMessenger.of(
         context,
@@ -182,9 +181,8 @@ class _DataSyncListItem extends StatelessWidget {
           return;
         }
         if (success) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('$title frissítve')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('$title frissítve')));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('A frissítés nem sikerült')),

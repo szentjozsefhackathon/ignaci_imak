@@ -71,8 +71,7 @@ class ImpressumPage extends StatelessWidget {
                     ),
                   ),
                   const TextSpan(
-                    text:
-                        'Felújítva 2025-ben, a Szent József Hackathon keretein belül.\n\nHa fejlesztenél valamit az alkalmazáson, akkor',
+                    text: 'Felújítva 2025-ben, a Szent József Hackathon keretein belül.\n\nHa fejlesztenél valamit az alkalmazáson, akkor',
                   ),
                   LinkSpan(urlLabel: 'itt találod', url: _kProjectUrl),
                   const TextSpan(text: 'a nyílt forráskódú projektet.'),

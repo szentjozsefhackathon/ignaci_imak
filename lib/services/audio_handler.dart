@@ -1,6 +1,7 @@
 import 'dart:async' show Timer, unawaited;
 import 'dart:typed_data' show Uint8List, ByteData, Endian;
 import 'dart:ui' show VoidCallback;
+
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:collection/collection.dart';
@@ -765,8 +766,7 @@ class AudioHandlerProvider extends Provider<AudioHandler> {
         androidNotificationOngoing: true,
         androidNotificationChannelId: '$kNotificationChannelBase.ima',
         androidNotificationChannelName: 'Ima értesítés',
-        androidNotificationChannelDescription:
-            'Az ima elindítása alatt megjelenő értesítés, amivel az alkalmazás háttérbe kerülése esetén és a lezárt képernyőről is vezérelhető marad.',
+        androidNotificationChannelDescription: 'Az ima elindítása alatt megjelenő értesítés, amivel az alkalmazás háttérbe kerülése esetén és a lezárt képernyőről is vezérelhető marad.',
       ),
     );
   }
