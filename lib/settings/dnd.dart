@@ -1,7 +1,7 @@
 import 'package:do_not_disturb/do_not_disturb.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart'
     show ChangeNotifierProvider, SelectContext, ReadContext;
 import 'package:universal_io/universal_io.dart' show Platform;

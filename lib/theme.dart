@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 // https://konyvjelzo.jezsuita.hu/arculat/
 const kThemeSeedColor = Color(0xFFBA0527);
