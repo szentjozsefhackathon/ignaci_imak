@@ -116,7 +116,9 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   Future<void> _startBgLoop() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      return;
+    }
     final player = _bgPlayer!;
     final silenceUri = await _ensureSilenceFile();
     await player.setAudioSource(AudioSource.uri(silenceUri));
@@ -128,15 +130,19 @@ class AudioHandler extends BaseAudioHandler {
     await _bgPlayer?.stop();
   }
 
-  void preparePrayer(Duration total) {
+  void preparePrayer(Duration total, {Duration elapsed = Duration.zero}) {
+    _paused = false;
+    _pausedAt = null;
     _prayerTotal = total;
-    _remainingTime = total;
+    _prayerElapsed = elapsed.clamp(Duration.zero, total);
+    _remainingTime = total - _prayerElapsed;
+    _prayerIsRunning = true;
   }
 
-  void startPrayerTimer() {
-    _prayerStartTime = DateTime.now();
-    _prayerElapsed = Duration.zero;
-    _remainingTime = _prayerTotal;
+  void startPrayerTimer({Duration elapsed = Duration.zero}) {
+    _prayerElapsed = elapsed.clamp(Duration.zero, _prayerTotal);
+    _prayerStartTime = DateTime.now().subtract(_prayerElapsed);
+    _remainingTime = _prayerTotal - _prayerElapsed;
     unawaited(_setWakelock(true));
     _startPrayerTimer();
   }
@@ -249,6 +255,7 @@ class AudioHandler extends BaseAudioHandler {
   bool get isFinished => _isFinished;
 
   Duration get remainingTime => _remainingTime;
+  Duration get prayerElapsed => _prayerElapsed;
   int get prayerCurrentPage => _prayerCurrentPage;
   bool get prayerIsRunning => _prayerIsRunning;
 
@@ -298,7 +305,9 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   Future<void> _cleanupTempFiles() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      return;
+    }
     final tempDir = await getTemporaryDirectory();
     final tempFiles = tempDir
         .list(followLinks: false)
@@ -329,7 +338,6 @@ class AudioHandler extends BaseAudioHandler {
     int voiceIndex,
   ) async {
     _paused = false;
-    _prayerElapsed = Duration.zero;
     _csengoUri = null;
     await _stopBgLoop();
     try {
@@ -387,7 +395,8 @@ class AudioHandler extends BaseAudioHandler {
           if (step.voices.isEmpty) {
             return MediaItem(
               id: '__silence__',
-              album: '${p.prayer.title} · ${group.title}',
+              album: p.prayer.title,
+              artist: group.title,
               title: step.description,
               artUri: imageUri,
               duration: totalDuration,
@@ -397,7 +406,8 @@ class AudioHandler extends BaseAudioHandler {
           final name = step.voices[voiceIdx];
           return MediaItem(
             id: name,
-            album: '${p.prayer.title} · ${group.title}',
+            album: p.prayer.title,
+            artist: group.title,
             title: step.description,
             artUri: imageUri,
             duration: totalDuration,
@@ -482,7 +492,12 @@ class AudioHandler extends BaseAudioHandler {
     final uri = _voiceUris![index];
     if (uri.toString().isEmpty) {
       mediaItem.add(queue.value[index]);
-      await _player.stop();
+      if (kIsWeb) {
+        // stop would end the media session and remove the notification here
+        await _player.pause();
+      } else {
+        await _player.stop();
+      }
       return;
     }
     if (uri.scheme == 'file' && !File(uri.toFilePath()).existsSync()) {
@@ -491,7 +506,7 @@ class AudioHandler extends BaseAudioHandler {
     }
     try {
       if (kIsWeb) {
-        await _player.stop();
+        await _player.pause();
       }
       await _player.setAudioSource(AudioSource.uri(uri));
       if (uri == _silenceUri) {
@@ -525,13 +540,13 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   @override
-  Future<void> skipToQueueItem(int index) async {
-    if (queue.valueOrNull == null || index >= queue.value.length) {
+  Future<void> skipToQueueItem(int index, {bool resetTimer = true}) async {
+    if (queue.valueOrNull == null || index < 0 || index >= queue.value.length) {
       return;
     }
     _currentIndex = index;
     _prayerCurrentPage = index;
-    if (index < _pageStartTimes.length) {
+    if (resetTimer && index < _pageStartTimes.length) {
       _remainingTime = _pageStartTimes[index];
       final now = DateTime.now();
       _prayerStartTime = now.subtract(_prayerTotal - _remainingTime);
@@ -616,7 +631,9 @@ class AudioHandler extends BaseAudioHandler {
     List<PrayerStep> steps,
     Duration total,
   ) {
-    if (steps.isEmpty) return [];
+    if (steps.isEmpty) {
+      return [];
+    }
 
     Duration totalFix = Duration.zero;
     Duration totalFlex = Duration.zero;
@@ -717,7 +734,9 @@ class AudioHandler extends BaseAudioHandler {
   }
 
   void _vibrateIfNoSound() {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      return;
+    }
     if (!_prayerHasVoices || _soundMuted) {
       Vibration.vibrate();
     }
@@ -750,24 +769,37 @@ class AudioHandler extends BaseAudioHandler {
   );
 }
 
+extension DurationExtensions on Duration {
+  Duration clamp(Duration min, Duration max) {
+    assert(
+      min.compareTo(max) <= 0,
+      'Duration min has to be shorter than max\n(min: $min - max: $max)',
+    );
+    if (compareTo(min).isNegative) {
+      return min;
+    } else if (max.compareTo(this).isNegative) {
+      return max;
+    }
+    return this;
+  }
+}
+
 class AudioHandlerProvider extends Provider<AudioHandler> {
   // ignore: use_super_parameters
   AudioHandlerProvider({super.key, required AudioHandler value})
     : super.value(value: value);
 
-  static Future<AudioHandler> createHandler() async {
-    if (kIsWeb) return AudioHandler();
-    return AudioService.init<AudioHandler>(
-      builder: () => AudioHandler(),
-      config: const AudioServiceConfig(
-        androidNotificationIcon: kNotificationIcon,
-        notificationColor: kThemeSeedColor,
-        androidNotificationOngoing: true,
-        androidNotificationChannelId: '$kNotificationChannelBase.ima',
-        androidNotificationChannelName: 'Ima értesítés',
-        androidNotificationChannelDescription:
-            'Az ima elindítása alatt megjelenő értesítés, amivel az alkalmazás háttérbe kerülése esetén és a lezárt képernyőről is vezérelhető marad.',
-      ),
-    );
-  }
+  static Future<AudioHandler>
+  createHandler() => AudioService.init<AudioHandler>(
+    builder: () => AudioHandler(),
+    config: const AudioServiceConfig(
+      androidNotificationIcon: kNotificationIcon,
+      notificationColor: kThemeSeedColor,
+      androidNotificationOngoing: true,
+      androidNotificationChannelId: '$kNotificationChannelBase.ima',
+      androidNotificationChannelName: 'Ima értesítés',
+      androidNotificationChannelDescription:
+          'Az ima elindítása alatt megjelenő értesítés, amivel az alkalmazás háttérbe kerülése esetén és a lezárt képernyőről is vezérelhető marad.',
+    ),
+  );
 }

@@ -7,22 +7,21 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/database.dart';
 import '../data/preferences.dart';
 import '../routes.dart';
-import '../services.dart';
+import '../services/sync_service.dart' show SyncService;
 import '../settings/dnd.dart';
 import '../settings/focus_status.dart';
-import 'prayer_page.dart';
 import 'sync.dart';
 
-class PrayerSettingsPage extends StatefulWidget {
-  const PrayerSettingsPage({super.key, required this.prayer});
+class PrayerSettings extends StatefulWidget {
+  const PrayerSettings({super.key, required this.prayer});
 
   final PrayerWithGroup prayer;
 
   @override
-  State<PrayerSettingsPage> createState() => _PrayerSettingsPageState();
+  State<PrayerSettings> createState() => _PrayerSettingsState();
 }
 
-class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
+class _PrayerSettingsState extends State<PrayerSettings> {
   @override
   void initState() {
     super.initState();
@@ -36,176 +35,151 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
   Widget build(BuildContext context) {
     final prefs = context.watch<Preferences>();
 
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.prayer.prayer.title)),
-      body: ListView(
-        children: [
-          SwitchListTile(
-            title: const Text('Automatikus lapozás'),
-            value: prefs.autoPageTurn,
-            onChanged: prefs.setAutoPageTurn,
+    return Column(
+      children: [
+        SwitchListTile(
+          title: const Text('Automatikus lapozás'),
+          value: prefs.autoPageTurn,
+          onChanged: prefs.setAutoPageTurn,
+        ),
+        if (Platform.isAndroid)
+          DndSwitchListTile(value: prefs.dnd, onChanged: prefs.setDnd),
+        if (Platform.isIOS)
+          Selector<FocusStatus, bool?>(
+            selector: (context, fs) => fs.status,
+            builder: (context, isFocused, _) {
+              if (isFocused == true) {
+                return const SizedBox.shrink();
+              }
+              return _FocusHint();
+            },
           ),
-          if (Platform.isAndroid)
-            DndSwitchListTile(value: prefs.dnd, onChanged: prefs.setDnd),
-          if (Platform.isIOS)
-            Selector<FocusStatus, bool?>(
-              selector: (context, fs) => fs.status,
-              builder: (context, isFocused, _) {
-                if (isFocused == true) {
-                  return const SizedBox.shrink();
-                }
-                return _FocusHint();
-              },
+        if (widget.prayer.prayer.voiceOptions.isEmpty)
+          const SwitchListTile(
+            title: Text('Hang'),
+            subtitle: Text('Nincs ehhez az imához'),
+            value: false,
+            onChanged: null,
+          )
+        else
+          StreamBuilder(
+            stream: context.read<Database>().mediaDao.watchVoiceOptionsOf(
+              widget.prayer.prayer,
             ),
-          if (widget.prayer.prayer.voiceOptions.isEmpty)
-            const SwitchListTile(
-              title: Text('Hang'),
-              subtitle: Text('Nincs ehhez az imához'),
-              value: false,
-              onChanged: null,
-            )
-          else
-            StreamBuilder(
-              stream: context.read<Database>().mediaDao.watchVoiceOptionsOf(
-                widget.prayer.prayer,
-              ),
-              builder: (context, snapshot) {
-                final data = snapshot.data;
-                if (data == null) {
-                  return const SwitchListTile(
-                    title: Text('Hang'),
-                    subtitle: Text('Betöltés...'),
-                    value: false,
-                    onChanged: null,
-                  );
-                }
-                return RadioGroup(
-                  groupValue: prefs.voiceChoice,
-                  onChanged: (v) {
-                    if (v != null) {
-                      prefs.setVoiceChoice(v);
-                    }
-                  },
-                  child: Column(
-                    children: [
-                      SwitchListTile(
-                        title: const Text('Hang'),
-                        value:
-                            prefs.prayerSoundEnabled &&
-                            (kIsWeb || data.isNotEmpty),
-                        onChanged: kIsWeb || data.isNotEmpty
-                            ? prefs.setPrayerSoundEnabled
-                            : null,
-                      ),
-                      ...widget.prayer.prayer.voiceOptions.mapIndexed((
-                        voiceIndex,
-                        voice,
-                      ) {
-                        final available = kIsWeb || data[voice]!;
-                        return RadioListTile(
-                          title: Text(voice),
-                          subtitle: available
-                              ? null
-                              : const Text('Nincs letöltve'),
-                          value: available ? voice : '',
-                          enabled: available && prefs.prayerSoundEnabled,
-                          secondary: available || !prefs.prayerSoundEnabled
-                              ? null
-                              : _DownloadVoiceButton(
-                                  prayer: widget.prayer.prayer,
-                                  voiceIndex: voiceIndex,
-                                ),
-                        );
-                      }),
-                    ],
-                  ),
+            builder: (context, snapshot) {
+              final data = snapshot.data;
+              if (data == null) {
+                return const SwitchListTile(
+                  title: Text('Hang'),
+                  subtitle: Text('Betöltés...'),
+                  value: false,
+                  onChanged: null,
                 );
-              },
-            ),
-          ListTile(
-            title: const Text('Ima hossza'),
-            subtitle: Text('${prefs.prayerLength.inMinutes} perc'),
-            trailing: const Icon(Icons.edit),
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) {
-                  Duration length = Duration(
-                    minutes: prefs.prayerLength.inMinutes.clamp(
-                      widget.prayer.prayer.minTime.inMinutes,
-                      60,
-                    ),
-                  );
-                  return AlertDialog(
-                    title: const Text('Ima hossza'),
-                    contentPadding: const EdgeInsets.fromLTRB(8, 32, 8, 0),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        StatefulBuilder(
-                          builder: (context, setState) => Slider(
-                            value: length.inMinutes.toDouble(),
-                            min: widget.prayer.prayer.minTime.inMinutes
-                                .toDouble(),
-                            max: 60,
-                            divisions:
-                                60 - widget.prayer.prayer.minTime.inMinutes,
-                            label: '${length.inMinutes} perc',
-                            onChanged: (v) => setState(
-                              () => length = Duration(minutes: v.toInt()),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Mégsem'),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          await prefs.setPrayerLength(length);
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                          }
-                        },
-                        child: const Text('Beállítás'),
-                      ),
-                    ],
-                  );
+              }
+              return RadioGroup(
+                groupValue: prefs.voiceChoice,
+                onChanged: (v) {
+                  if (v != null) {
+                    prefs.setVoiceChoice(v);
+                  }
                 },
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Hang'),
+                      value:
+                          prefs.prayerSoundEnabled &&
+                          (kIsWeb || data.isNotEmpty),
+                      onChanged: kIsWeb || data.isNotEmpty
+                          ? prefs.setPrayerSoundEnabled
+                          : null,
+                    ),
+                    ...widget.prayer.prayer.voiceOptions.mapIndexed((
+                      voiceIndex,
+                      voice,
+                    ) {
+                      final available = kIsWeb || data[voice]!;
+                      return RadioListTile(
+                        title: Text(voice),
+                        subtitle: available
+                            ? null
+                            : const Text('Nincs letöltve'),
+                        value: available ? voice : '',
+                        enabled: available && prefs.prayerSoundEnabled,
+                        secondary: available || !prefs.prayerSoundEnabled
+                            ? null
+                            : _DownloadVoiceButton(
+                                prayer: widget.prayer.prayer,
+                                voiceIndex: voiceIndex,
+                              ),
+                      );
+                    }),
+                  ],
+                ),
               );
             },
           ),
-          ListTile(
-            title: const Text('További beállítások'),
-            onTap: () => Navigator.pushNamed(context, Routes.settings),
-          ),
-        ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final steps = await context.read<Database>().prayersDao.prayerStepsOf(
-            widget.prayer.prayer,
-          );
-          if (!context.mounted) {
-            return;
-          }
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PrayerPage(
-                group: widget.prayer.group,
-                prayer: (prayer: widget.prayer.prayer, steps: steps),
-              ),
-            ),
-          );
-        },
-        tooltip: 'Ima indítása',
-        child: const Icon(Icons.play_arrow_rounded),
-      ),
+        ListTile(
+          title: const Text('Ima hossza'),
+          subtitle: Text('${prefs.prayerLength.inMinutes} perc'),
+          trailing: const Icon(Icons.edit),
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (context) {
+                Duration length = Duration(
+                  minutes: prefs.prayerLength.inMinutes.clamp(
+                    widget.prayer.prayer.minTime.inMinutes,
+                    60,
+                  ),
+                );
+                return AlertDialog(
+                  title: const Text('Ima hossza'),
+                  contentPadding: const EdgeInsets.fromLTRB(8, 32, 8, 0),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      StatefulBuilder(
+                        builder: (context, setState) => Slider(
+                          value: length.inMinutes.toDouble(),
+                          min: widget.prayer.prayer.minTime.inMinutes
+                              .toDouble(),
+                          max: 60,
+                          divisions:
+                              60 - widget.prayer.prayer.minTime.inMinutes,
+                          label: '${length.inMinutes} perc',
+                          onChanged: (v) => setState(
+                            () => length = Duration(minutes: v.toInt()),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Mégsem'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await prefs.setPrayerLength(length);
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                        }
+                      },
+                      child: const Text('Beállítás'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+        ListTile(
+          title: const Text('További beállítások'),
+          onTap: () => Navigator.pushNamed(context, Routes.settings),
+        ),
+      ],
     );
   }
 }
