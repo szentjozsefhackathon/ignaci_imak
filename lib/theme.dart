@@ -39,7 +39,10 @@ class AppTheme {
     //     : ColorScheme.fromSeed(seedColor: kSeedColor, brightness: brightness),
     // ignore: deprecated_member_use
     progressIndicatorTheme: const ProgressIndicatorThemeData(year2023: false),
-    // ignore: deprecated_member_use
-    sliderTheme: const SliderThemeData(year2023: false),
+    sliderTheme: const SliderThemeData(
+      // ignore: deprecated_member_use
+      year2023: false,
+      showValueIndicator: ShowValueIndicator.alwaysVisible,
+    ),
   );
 }

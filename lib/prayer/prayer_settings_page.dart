@@ -138,7 +138,7 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
                   );
                   return AlertDialog(
                     title: const Text('Ima hossza'),
-                    contentPadding: const EdgeInsets.fromLTRB(8, 32, 8, 0),
+                    contentPadding: const EdgeInsets.fromLTRB(8, 40, 8, 8),
                     content: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
