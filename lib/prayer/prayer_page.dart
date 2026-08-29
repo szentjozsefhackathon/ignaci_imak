@@ -35,7 +35,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
   int _currentPage = 0;
   bool _isClosing = false;
   StreamSubscription? _playbackSubscription;
-  void Function()? _prayerEnded;
+  VoidCallback? _prayerEnded;
 
   @override
   void initState() {
@@ -62,7 +62,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       }
       _isClosing = true;
       await _playbackSubscription?.cancel();
-      await _clearRouteState();
+      await _updateRouteInfo(withState: false);
       if (!mounted) {
         return;
       }
@@ -88,10 +88,8 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       if (targetPage != null && targetPage != _currentPage) {
         _pageViewController.jumpToPage(targetPage);
       }
-      setState(() {
-        _currentPage = targetPage ?? _currentPage;
-      });
-      _updateRouteState();
+      setState(() => _currentPage = targetPage ?? _currentPage);
+      _updateRouteInfo();
     });
     final prefs = context.read<Preferences>();
     _audioHandler.preparePrayer(
@@ -117,7 +115,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       if (!mounted) {
         return;
       }
-      _updateRouteState();
+      await _updateRouteInfo();
       await _audioHandler.initSession(
         const AudioSessionConfiguration(
           avAudioSessionCategory: AVAudioSessionCategory.playback,
@@ -172,7 +170,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Ima leállítása'),
-        content: const Text('Biztosan le akarod állítani az imát?'),
+        content: const Text('Biztosan le szeretnéd állítani az imát?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -206,7 +204,7 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     }
     await _playbackSubscription?.cancel();
     await _audioHandler.stop();
-    await _clearRouteState();
+    await _updateRouteInfo(withState: false);
     if (mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
@@ -219,31 +217,22 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     }
   }
 
-  void _updateRouteState() {
-    if (!kIsWeb) {
-      return;
-    }
-    SystemNavigator.routeInformationUpdated(
-      uri: Uri.parse(
-        Routes.prayerState(
-          widget.group,
-          widget.prayer.prayer,
-          page: _currentPage,
-          elapsed: _audioHandler.prayerElapsed,
+  Future<void> _updateRouteInfo({bool withState = true}) async {
+    if (kIsWeb) {
+      await SystemNavigator.routeInformationUpdated(
+        uri: Uri.parse(
+          withState
+              ? Routes.prayerState(
+                  widget.group,
+                  widget.prayer.prayer,
+                  page: _currentPage,
+                  elapsed: _audioHandler.prayerElapsed,
+                )
+              : Routes.prayer(widget.group, widget.prayer.prayer),
         ),
-      ),
-      replace: true,
-    );
-  }
-
-  Future<void> _clearRouteState() async {
-    if (!kIsWeb) {
-      return;
+        replace: true,
+      );
     }
-    await SystemNavigator.routeInformationUpdated(
-      uri: Uri.parse(Routes.prayer(widget.group, widget.prayer.prayer)),
-      replace: true,
-    );
   }
 
   @override
@@ -255,10 +244,9 @@ class _PrayerPageState extends State<PrayerPage> with TickerProviderStateMixin {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) {
-          return;
+        if (!didPop) {
+          await _requestClose();
         }
-        await _requestClose();
       },
       child: Scaffold(
         appBar: AppBar(

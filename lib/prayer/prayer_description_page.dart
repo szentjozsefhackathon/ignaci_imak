@@ -20,7 +20,11 @@ class _PrayerDescriptionPageState extends State<PrayerDescriptionPage> {
   static const _wideLayoutBreakpoint = 900.0;
 
   final _scrollController = ScrollController();
-  bool _showingSettings = false;
+  bool _scrolledToSettings = false;
+
+  bool get _settingsVisible =>
+      MediaQuery.sizeOf(context).width >= _wideLayoutBreakpoint ||
+      _scrolledToSettings;
 
   @override
   void dispose() {
@@ -29,36 +33,30 @@ class _PrayerDescriptionPageState extends State<PrayerDescriptionPage> {
   }
 
   Future<void> _onFabPressed() async {
-    if (_settingsAreShown) {
+    if (_settingsVisible) {
       final steps = await context.read<Database>().prayersDao.prayerStepsOf(
         widget.prayer.prayer,
       );
-      if (!mounted) {
-        return;
-      }
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PrayerPage(
-            group: widget.prayer.group,
-            prayer: (prayer: widget.prayer.prayer, steps: steps),
+      if (mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PrayerPage(
+              group: widget.prayer.group,
+              prayer: (prayer: widget.prayer.prayer, steps: steps),
+            ),
           ),
-        ),
+        );
+      }
+    } else {
+      setState(() => _scrolledToSettings = true);
+      await _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
       );
-      return;
     }
-
-    setState(() => _showingSettings = true);
-    await _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-    );
   }
-
-  bool get _settingsAreShown =>
-      MediaQuery.sizeOf(context).width >= _wideLayoutBreakpoint ||
-      _showingSettings;
 
   bool _onScroll(ScrollNotification notification) {
     final scrollingUp =
@@ -67,10 +65,10 @@ class _PrayerDescriptionPageState extends State<PrayerDescriptionPage> {
     final reachedBottom =
         notification is ScrollUpdateNotification &&
         notification.metrics.extentAfter == 0;
-    final showingSettings = reachedBottom || (_showingSettings && !scrollingUp);
+    final atSettings = reachedBottom || (_scrolledToSettings && !scrollingUp);
 
-    if (showingSettings != _showingSettings) {
-      setState(() => _showingSettings = showingSettings);
+    if (atSettings != _scrolledToSettings) {
+      setState(() => _scrolledToSettings = atSettings);
     }
     return false;
   }
@@ -145,9 +143,9 @@ class _PrayerDescriptionPageState extends State<PrayerDescriptionPage> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
         onPressed: _onFabPressed,
-        tooltip: _settingsAreShown ? 'Ima indítása' : 'Ima beállítása',
+        tooltip: _settingsVisible ? 'Ima indítása' : 'Ima beállítása',
         child: Icon(
-          _settingsAreShown
+          _settingsVisible
               ? Icons.play_arrow_rounded
               : Icons.keyboard_arrow_down_rounded,
         ),
