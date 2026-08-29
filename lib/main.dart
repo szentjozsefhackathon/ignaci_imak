@@ -104,7 +104,7 @@ class IgnacioPrayersApp extends StatelessWidget {
         onUnknownRoute: Routes.onUnknownRoute,
         localizationsDelegates: const [
           RelativeTimeLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
         ],
         supportedLocales: const [Locale('hu')],
       ),
