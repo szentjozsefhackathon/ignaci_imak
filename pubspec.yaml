@@ -115,6 +115,16 @@ flutter:
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
 
+  assets:
+    - path: assets/versions.json
+      platforms:
+        - android
+        - ios
+    - path: assets/prayers.json
+      platforms:
+        - android
+        - ios
+
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
   # "family" key with the font family name, and a "fonts" key with a
@@ -163,4 +173,3 @@ sentry:
   dart_symbol_map_path: build/mapping.json
   symbols_path: build/symbols
   url_prefix: ~/flutter/
-

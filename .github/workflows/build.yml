@@ -125,6 +125,7 @@ jobs:
 
       - name: Build App Bundle
         run: |
+          dart run tools/download_fallback.dart
           flutter build appbundle --release \
             --build-name=${{ env.VERSION_NAME }} \
             --build-number=${{ env.VERSION_CODE }} \
@@ -212,6 +213,7 @@ jobs:
 
       - name: Build Release IPA Archive
         run: |
+          dart run tools/download_fallback.dart
           flutter build ipa --release --no-codesign \
             --build-name=${{ env.VERSION_NAME }} \
             --build-number=${{ env.VERSION_CODE }}
