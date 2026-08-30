@@ -11,6 +11,7 @@ import 'package:sentry_flutter/sentry_flutter.dart' show SentryStatusCode;
 import 'package:universal_io/universal_io.dart' show HttpHeaders, HttpStatus;
 
 import '../data/database.dart';
+import '../data/fallback.dart';
 import '../data/preferences.dart';
 import '../data/versions.dart';
 import '../env.dart';
@@ -251,7 +252,16 @@ class SyncService extends ChangeNotifier {
       }
     } catch (e, s) {
       _log.severe('Failed to download versions', e, s);
-      rethrow;
+      final bundled = await Fallback.loadVersions();
+      if (bundled != null) {
+        _log.info('Using bundled version information');
+        _latestVersions = bundled;
+        finalStatus = _isStatusIdleOrUpdate;
+        success = true;
+      }
+      if (!success) {
+        rethrow;
+      }
     } finally {
       _setStatus(finalStatus);
     }
@@ -280,61 +290,7 @@ class SyncService extends ChangeNotifier {
       final response = await _get<List>(Env.serverDownloadDataPath);
       if (response?.data case final List data
           when response?.statusCode == HttpStatus.ok) {
-        final groups = <PrayerGroup>[];
-        final prayers = <Prayer>[];
-        final steps = <PrayerStep>[];
-        for (final group in data) {
-          final g = PrayerGroup.fromJson(group);
-          groups.add(g);
-          for (final prayer in group['prayers']) {
-            final p = Prayer.fromJson(prayer, group: g);
-            prayers.add(p);
-            int stepIndex = 0;
-            for (final step in prayer['steps']) {
-              steps.add(PrayerStep.fromJson(step, prayer: p, index: stepIndex));
-              stepIndex++;
-            }
-          }
-        }
-        await _db.transaction(() async {
-          await _db.managers.prayerGroups.bulkCreate(
-            (create) => groups.map(
-              (g) => create(slug: g.slug, title: g.title, image: g.image),
-            ),
-            mode: InsertMode.insertOrReplace,
-          );
-          await _db.managers.prayers.bulkCreate(
-            (create) => prayers.map(
-              (p) => create(
-                slug: p.slug,
-                title: p.title,
-                image: p.image,
-                description: p.description,
-                minTime: p.minTime,
-                voiceOptions: p.voiceOptions,
-                group: p.group,
-              ),
-            ),
-            mode: InsertMode.insertOrReplace,
-          );
-          await _db.managers.prayerSteps.bulkCreate(
-            (create) => steps.map(
-              (s) => create(
-                index: s.index,
-                description: s.description,
-                time: s.time,
-                type: s.type,
-                voices: s.voices,
-                prayer: s.prayer,
-              ),
-            ),
-            mode: InsertMode.insertOrReplace,
-          );
-        });
-        await _prefs.setVersions(
-          _prefs.versions?.copyWith(data: v.data) ??
-              Versions.downloaded(v, data: true),
-        );
+        await _storePrayerData(data, v);
         finalStatus = _isStatusIdleOrUpdate;
         success = true;
       } else {
@@ -342,11 +298,94 @@ class SyncService extends ChangeNotifier {
       }
     } catch (e, s) {
       _log.severe('Failed to download data', e, s);
-      rethrow;
+      final bundledVersions = await Fallback.loadVersions();
+      if (bundledVersions != null &&
+          await _shouldUseBundledData(bundledVersions)) {
+        final bundledData = await Fallback.loadPrayers();
+        if (bundledData != null) {
+          _log.info('Using bundled prayer data');
+          _latestVersions = bundledVersions;
+          await _storePrayerData(bundledData, bundledVersions);
+          finalStatus = _isStatusIdleOrUpdate;
+          success = true;
+        }
+      }
+      if (!success) {
+        rethrow;
+      }
     } finally {
       _setStatus(finalStatus);
     }
     return success;
+  }
+
+  Future<bool> _shouldUseBundledData(Versions bundled) async {
+    if (await _db.managers.prayerGroups.count() == 0) {
+      return true;
+    }
+    final downloadedVersion = _prefs.versions?.data;
+    return bundled.data.isNotEmpty &&
+        (downloadedVersion == null ||
+            downloadedVersion.isEmpty ||
+            downloadedVersion != bundled.data);
+  }
+
+  Future<void> _storePrayerData(List data, Versions versions) async {
+    final groups = <PrayerGroup>[];
+    final prayers = <Prayer>[];
+    final steps = <PrayerStep>[];
+    for (final group in data) {
+      final g = PrayerGroup.fromJson(group);
+      groups.add(g);
+      for (final prayer in group['prayers']) {
+        final p = Prayer.fromJson(prayer, group: g);
+        prayers.add(p);
+        int stepIndex = 0;
+        for (final step in prayer['steps']) {
+          steps.add(PrayerStep.fromJson(step, prayer: p, index: stepIndex));
+          stepIndex++;
+        }
+      }
+    }
+    await _db.transaction(() async {
+      await _db.managers.prayerGroups.bulkCreate(
+        (create) => groups.map(
+          (g) => create(slug: g.slug, title: g.title, image: g.image),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+      await _db.managers.prayers.bulkCreate(
+        (create) => prayers.map(
+          (p) => create(
+            slug: p.slug,
+            title: p.title,
+            image: p.image,
+            description: p.description,
+            minTime: p.minTime,
+            voiceOptions: p.voiceOptions,
+            group: p.group,
+          ),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+      await _db.managers.prayerSteps.bulkCreate(
+        (create) => steps.map(
+          (s) => create(
+            index: s.index,
+            description: s.description,
+            time: s.time,
+            type: s.type,
+            voices: s.voices,
+            prayer: s.prayer,
+          ),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+    await _prefs.setVersions(
+      _prefs.versions?.copyWith(data: versions.data) ??
+          Versions.downloaded(versions, data: true),
+    );
   }
 
   Future<List<T>> _runBatched<T>(
