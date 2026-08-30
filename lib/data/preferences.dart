@@ -42,13 +42,18 @@ class Preferences extends ChangeNotifier {
       data: data,
       images: images,
       voices: voices,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(ts, isUtc: true),
+      timestamp: ts < 0
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(ts, isUtc: true),
     );
   }
 
   Future<void> setVersions(Versions v) async {
     await _p.setStringList(_kVersions, [v.data, v.images, v.voices]);
-    await _p.setInt(_kLastSync, v.timestamp.toUtc().millisecondsSinceEpoch);
+    await _p.setInt(
+      _kLastSync,
+      v.timestamp?.toUtc().millisecondsSinceEpoch ?? -1,
+    );
     notifyListeners();
   }
 

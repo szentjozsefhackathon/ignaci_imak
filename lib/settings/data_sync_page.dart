@@ -57,20 +57,7 @@ class DataSyncPage extends StatelessWidget {
                   title: const Text('Legutóbbi szinkronizálás'),
                   subtitle: status == SyncStatus.versionCheck
                       ? null
-                      : Text(
-                          srv.latestVersions != null
-                              ? RelativeTime(
-                                  context,
-                                  timeUnits: [
-                                    TimeUnit.minute,
-                                    TimeUnit.hour,
-                                    TimeUnit.day,
-                                  ],
-                                ).format(
-                                  srv.latestVersions!.timestamp.toLocal(),
-                                )
-                              : 'nincsenek adatok, érintsd meg az ellenőrzéshez',
-                        ),
+                      : Text(_syncTime(context, srv.latestVersions)),
                   trailing: status == SyncStatus.versionCheck
                       ? const ListItemProgressIndicator()
                       : const Icon(Icons.sync_rounded),
@@ -107,6 +94,19 @@ class DataSyncPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _syncTime(BuildContext context, Versions? v) {
+    if (v == null) {
+      return 'nincsenek adatok, érintsd meg az ellenőrzéshez';
+    }
+    if (v.timestamp case final ts?) {
+      return RelativeTime(
+        context,
+        timeUnits: [TimeUnit.minute, TimeUnit.hour, TimeUnit.day],
+      ).format(ts.toLocal());
+    }
+    return 'érintsd meg az ellenőrzéshez';
   }
 }
 

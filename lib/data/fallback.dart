@@ -9,16 +9,13 @@ class Fallback {
   static const kVersions = 'assets/versions.json';
   static const kPrayers = 'assets/prayers.json';
 
-  static Future<Versions?> loadVersions() async {
+  static Future<Versions?> loadVersions({required DateTime? lastCheck}) async {
     if (kIsWeb) {
       return null;
     }
     try {
       final value = json.decode(await rootBundle.loadString(kVersions));
-      final v = Versions.fromJson(
-        value as Json,
-        timestamp: DateTime.now().toUtc(),
-      );
+      final v = Versions.fromJson(value as Json, timestamp: lastCheck);
       if (v.data.isEmpty) {
         return null;
       }

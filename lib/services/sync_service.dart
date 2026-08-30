@@ -252,7 +252,9 @@ class SyncService extends ChangeNotifier {
       }
     } catch (e, s) {
       _log.severe('Failed to download versions', e, s);
-      final bundled = await Fallback.loadVersions();
+      final bundled = await Fallback.loadVersions(
+        lastCheck: _prefs.versions?.timestamp,
+      );
       if (bundled != null) {
         _log.info('Using bundled version information');
         _latestVersions = bundled;
@@ -298,7 +300,9 @@ class SyncService extends ChangeNotifier {
       }
     } catch (e, s) {
       _log.severe('Failed to download data', e, s);
-      final bundledVersions = await Fallback.loadVersions();
+      final bundledVersions = await Fallback.loadVersions(
+        lastCheck: _prefs.versions?.timestamp,
+      );
       if (bundledVersions != null &&
           await _shouldUseBundledData(bundledVersions)) {
         final bundledData = await Fallback.loadPrayers();
