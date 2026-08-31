@@ -68,7 +68,7 @@ dependencies:
   relative_time: ^5.0.0
   sentry_dio: ^9.23.0
   sentry_flutter: ^9.22.0
-  sentry_logging: ^9.26.0
+  sentry_logging: ^9.28.0
   shared_preferences: ^2.5.5
   slugify: ^2.0.0
   timezone: ^0.11.1
