@@ -66,7 +66,7 @@ dependencies:
   permission_handler: ^13.0.1
   provider: ^6.1.5
   relative_time: ^5.0.0
-  sentry_dio: ^9.23.0
+  sentry_dio: ^9.28.0
   sentry_flutter: ^9.22.0
   sentry_logging: ^9.26.0
   shared_preferences: ^2.5.5
