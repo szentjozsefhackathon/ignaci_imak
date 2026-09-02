@@ -24,3 +24,7 @@ updates:
         patterns:
           - "json_annotation"
           - "json_serializable"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
