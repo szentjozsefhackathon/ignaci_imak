@@ -53,6 +53,7 @@ jobs:
         with:
           channel: stable
           cache: true
+          pub-cache: true
 
       - name: Create .env file
         uses: jakubcieslik99/secrets-vars-to-env-file-action@892a3155a4b575f1c6a06afcf1ed47f5a058f32e # v1.6.0
@@ -64,7 +65,7 @@ jobs:
       - name: Install dependencies
         run: |
           flutter pub get
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
 
@@ -122,6 +123,7 @@ jobs:
         with:
           channel: stable
           cache: true
+          pub-cache: true
 
       - name: Create .env file
         uses: jakubcieslik99/secrets-vars-to-env-file-action@892a3155a4b575f1c6a06afcf1ed47f5a058f32e # v1.6.0
@@ -133,7 +135,7 @@ jobs:
       - name: Install dependencies
         run: |
           flutter pub get
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
 
@@ -193,6 +195,7 @@ jobs:
         with:
           channel: stable
           cache: true
+          pub-cache: true
 
       - name: Create .env file
         uses: jakubcieslik99/secrets-vars-to-env-file-action@892a3155a4b575f1c6a06afcf1ed47f5a058f32e # v1.6.0
@@ -204,7 +207,7 @@ jobs:
       - name: Install dependencies
         run: |
           flutter pub get
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
 
