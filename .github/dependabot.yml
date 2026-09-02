@@ -10,6 +10,9 @@ updates:
     versioning-strategy: "increase"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Budapest"
     cooldown:
       semver-major-days: 30
       semver-minor-days: 7
@@ -32,3 +35,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Budapest"
