@@ -1,9 +1,9 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart'
     show WatchContext, ChangeNotifierProvider;
 import 'package:timezone/timezone.dart';

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ListItemProgressIndicator extends StatelessWidget {
   const ListItemProgressIndicator({super.key, this.value});

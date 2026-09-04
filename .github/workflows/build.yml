@@ -6,17 +6,44 @@ on:
     tags:
       - 'v*'
 
-# Required for pushing to GitHub Container Registry (GHCR)
 permissions:
-  contents: write
-  packages: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  prepare_release:
+    name: Validate release version
+    runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.version.outputs.name }}
+    steps:
+      - id: version
+        name: Validate version
+        env:
+          RELEASE_REF: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$RELEASE_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release workflows must run from a version tag such as v1.2.3, not: $RELEASE_REF" >&2
+            exit 1
+          fi
+          VERSION_NAME="${RELEASE_REF#v}"
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
   # --- JOB 1: Web & Docker ---
   build-web-docker:
     name: Build Web & Push Docker
+    needs: prepare_release
     runs-on: ubuntu-latest
     environment: deploy
+    env:
+      VERSION_NAME: ${{ needs.prepare_release.outputs.version_name }}
+      VERSION_CODE: ${{ github.run_number }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,14 +53,10 @@ jobs:
         with:
           channel: stable
           cache: true
-
-      - name: Extract version from tag
-        run: |
-          echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
-          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
+          pub-cache: true
 
       - name: Create .env file
-        uses: jakubcieslik99/secrets-vars-to-env-file-action@main
+        uses: jakubcieslik99/secrets-vars-to-env-file-action@892a3155a4b575f1c6a06afcf1ed47f5a058f32e # v1.6.0
         with:
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
@@ -42,7 +65,7 @@ jobs:
       - name: Install dependencies
         run: |
           flutter pub get
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
 
@@ -76,10 +99,15 @@ jobs:
   # --- JOB 2: Android ---
   build-android:
     name: Build & Publish Android
+    needs: prepare_release
     runs-on: ubuntu-latest
     environment: deploy
+    permissions:
+      contents: read
     env:
       PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      VERSION_NAME: ${{ needs.prepare_release.outputs.version_name }}
+      VERSION_CODE: ${{ github.run_number }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -95,14 +123,10 @@ jobs:
         with:
           channel: stable
           cache: true
-
-      - name: Extract version from tag
-        run: |
-          echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
-          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
+          pub-cache: true
 
       - name: Create .env file
-        uses: jakubcieslik99/secrets-vars-to-env-file-action@main
+        uses: jakubcieslik99/secrets-vars-to-env-file-action@892a3155a4b575f1c6a06afcf1ed47f5a058f32e # v1.6.0
         with:
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
@@ -111,7 +135,7 @@ jobs:
       - name: Install dependencies
         run: |
           flutter pub get
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
 
@@ -151,12 +175,17 @@ jobs:
   # --- JOB 3: iOS ---
   build-ios:
     name: Build & Publish iOS
+    needs: prepare_release
     runs-on: macos-latest
     environment: deploy
+    permissions:
+      contents: read
     env:
       IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
       IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
       APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+      VERSION_NAME: ${{ needs.prepare_release.outputs.version_name }}
+      VERSION_CODE: ${{ github.run_number }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -165,14 +194,11 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-
-      - name: Extract version from tag
-        run: |
-          echo "VERSION_NAME=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
-          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
+          cache: true
+          pub-cache: true
 
       - name: Create .env file
-        uses: jakubcieslik99/secrets-vars-to-env-file-action@main
+        uses: jakubcieslik99/secrets-vars-to-env-file-action@892a3155a4b575f1c6a06afcf1ed47f5a058f32e # v1.6.0
         with:
           secrets: ${{ toJSON(secrets) }}
           vars: ${{ toJSON(vars) }}
@@ -181,7 +207,7 @@ jobs:
       - name: Install dependencies
         run: |
           flutter pub get
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
 
@@ -191,14 +217,14 @@ jobs:
           security create-keychain -p temp build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p temp build.keychain
-          
+
           security list-keychains -d user -s build.keychain $(security list-keychains -d user | tr -d '"')
 
           echo "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 --decode > cert.p12
           security import cert.p12 -k build.keychain \
             -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" \
             -A -T /usr/bin/codesign -T /usr/bin/xcodebuild
-            
+
           security set-key-partition-list \
             -S apple-tool:,apple:,codesign: -s -k temp build.keychain
           security set-keychain-settings -lut 3600 build.keychain
@@ -253,9 +279,12 @@ jobs:
 # --- JOB 4: Create GitHub Release ---
   create-release:
     name: Finalize GitHub Release
-    needs: [build-android, build-ios]
+    needs: [prepare_release, build-web-docker, build-android, build-ios]
     runs-on: ubuntu-latest
     environment: deploy
+    permissions:
+      actions: read
+      contents: write
     steps:
       - name: Download Android Artifact
         uses: actions/download-artifact@v4

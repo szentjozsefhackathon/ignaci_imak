@@ -1,5 +1,12 @@
 name: Check code quality
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -7,17 +14,14 @@ on:
   pull_request:
     branches:
       - main
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   check:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      # these env variables (but not their values) are required for build_runner
-      SERVER_URL: ''
-      SERVER_CHECK_VERSIONS_PATH: ''
-      SERVER_DOWNLOAD_DATA_PATH: ''
-      SERVER_MEDIA_PATH_PREFIX: ''
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -27,29 +31,19 @@ jobs:
         with:
           channel: stable
           cache: true
-
-      - name: Cache pub dependencies
-        uses: actions/cache@v5
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
+          pub-cache: true
 
       - name: Create .env file
-        uses: jakubcieslik99/secrets-vars-to-env-file-action@main
-        with:
-          secrets: ${{ toJSON(secrets) }}
-          vars: ${{ toJSON(vars) }}
-          exclude: SENTRY_DSN, FLUTTER_ROOT, PUB_CACHE
-
+        run: cp .env.example .env
       - name: Install dependencies
         run: flutter pub get
       - name: Run build_runner
         run: dart run build_runner build
+      - name: Verify generated files
+        run: git diff --exit-code
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
       - name: Run analysis
         run: dart analyze
-      # - name: Run tests
-      #   run: flutter test
+      - name: Run tests
+        run: flutter test

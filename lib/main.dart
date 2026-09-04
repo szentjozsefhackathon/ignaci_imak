@@ -1,11 +1,10 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart' show MultiProvider, Provider, Selector;
 import 'package:relative_time/relative_time.dart';
 import 'package:timezone/data/latest_all.dart' as tzdb;
@@ -105,9 +104,7 @@ class IgnacioPrayersApp extends StatelessWidget {
         onUnknownRoute: Routes.onUnknownRoute,
         localizationsDelegates: const [
           RelativeTimeLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
         ],
         supportedLocales: const [Locale('hu')],
       ),

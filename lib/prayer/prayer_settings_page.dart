@@ -1,6 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:universal_io/universal_io.dart' show Platform;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -138,7 +138,7 @@ class _PrayerSettingsPageState extends State<PrayerSettingsPage> {
                   );
                   return AlertDialog(
                     title: const Text('Ima hossza'),
-                    contentPadding: const EdgeInsets.fromLTRB(8, 32, 8, 0),
+                    contentPadding: const EdgeInsets.fromLTRB(8, 40, 8, 8),
                     content: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
