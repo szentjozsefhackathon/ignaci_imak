@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ignaci_imak/data/types.dart';
 import 'package:ignaci_imak/routes.dart';
+import 'package:material_ui/material_ui.dart';
 
 void main() {
   final prayerGroup = PrayerGroup(title: 'Group Title', image: 'group.jpg');
