@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart'
     show Consumer, SelectContext, Selector, ReadContext;
 import 'package:relative_time/relative_time.dart';
@@ -136,9 +136,8 @@ class _DataSyncListItem extends StatelessWidget {
       return;
     }
     if (success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$title letöltve')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('$title letöltve')));
     } else {
       ScaffoldMessenger.of(
         context,
@@ -182,9 +181,8 @@ class _DataSyncListItem extends StatelessWidget {
           return;
         }
         if (success) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('$title frissítve')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('$title frissítve')));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('A frissítés nem sikerült')),

@@ -1,6 +1,6 @@
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart'
     show WatchContext, ReadContext, Selector;
 import 'package:sentry_flutter/sentry_flutter.dart' show SentryFeedbackForm;
