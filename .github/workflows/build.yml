@@ -32,13 +32,13 @@ jobs:
           VERSION_NAME="${RELEASE_REF#v}"
           echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
-  # --- JOB 1: Web & Docker ---
   build-web-docker:
     name: Build Web & Push Docker
     needs: prepare_release
     runs-on: ubuntu-latest
     environment: deploy
     env:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_CLI_TOKEN }}
       VERSION_NAME: ${{ needs.prepare_release.outputs.version_name }}
       VERSION_CODE: ${{ github.run_number }}
     permissions:
@@ -80,9 +80,7 @@ jobs:
             --dart-define=SENTRY_DIST=${{ env.VERSION_CODE }}
 
       - name: Upload source maps to Sentry
-        if: ${{ secrets.SENTRY_CLI_TOKEN != '' }}
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_CLI_TOKEN }}
+        if: env.SENTRY_AUTH_TOKEN != ''
         run: |
           dart run sentry_dart_plugin \
             --sentry-define=release=ignaci_imak@${{ env.VERSION_NAME }} \
@@ -107,7 +105,6 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
-  # --- JOB 2: Android ---
   build-android:
     name: Build & Publish Android
     needs: prepare_release
@@ -117,6 +114,7 @@ jobs:
       contents: read
     env:
       PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_CLI_TOKEN }}
       VERSION_NAME: ${{ needs.prepare_release.outputs.version_name }}
       VERSION_CODE: ${{ github.run_number }}
     steps:
@@ -168,9 +166,7 @@ jobs:
             --android-skip-build-dependency-validation
 
       - name: Upload Sentry debug symbols
-        if: ${{ secrets.SENTRY_CLI_TOKEN != '' }}
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_CLI_TOKEN }}
+        if: env.SENTRY_AUTH_TOKEN != ''
         run: |
           dart run sentry_dart_plugin \
             --sentry-define=release=ignaci_imak@${{ env.VERSION_NAME }} \
@@ -184,7 +180,7 @@ jobs:
           path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Upload to Google Play Console
-        if: ${{ env.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+        if: env.PLAY_SERVICE_ACCOUNT_JSON != ''
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -195,7 +191,6 @@ jobs:
           inAppUpdatePriority: 2
           # userFraction: 0.1
 
-  # --- JOB 3: iOS ---
   build-ios:
     name: Build & Publish iOS
     needs: prepare_release
@@ -204,9 +199,10 @@ jobs:
     permissions:
       contents: read
     env:
+      APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
       IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
       IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-      APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_CLI_TOKEN }}
       VERSION_NAME: ${{ needs.prepare_release.outputs.version_name }}
       VERSION_CODE: ${{ github.run_number }}
     steps:
@@ -235,7 +231,7 @@ jobs:
           dart run flutter_native_splash:create
 
       - name: Import signing certificate
-        if: ${{ env.IOS_CERTIFICATE_BASE64 != '' }}
+        if: env.IOS_CERTIFICATE_BASE64 != ''
         run: |
           security create-keychain -p temp build.keychain
           security default-keychain -s build.keychain
@@ -253,7 +249,7 @@ jobs:
           security set-keychain-settings -lut 3600 build.keychain
 
       - name: Install provisioning profile
-        if: ${{ env.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+        if: env.IOS_PROVISIONING_PROFILE_BASE64 != ''
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" \
@@ -275,9 +271,7 @@ jobs:
             -exportOptionsPlist ios/export_options.plist
 
       - name: Upload Sentry debug symbols
-        if: ${{ secrets.SENTRY_CLI_TOKEN != '' }}
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_CLI_TOKEN }}
+        if: env.SENTRY_AUTH_TOKEN != ''
         run: |
           dart run sentry_dart_plugin \
             --sentry-define=release=ignaci_imak@${{ env.VERSION_NAME }} \
@@ -295,13 +289,13 @@ jobs:
           path: build/ios_build.tar.gz
 
       - name: Setup App Store Connect API Key
-        if: ${{ env.APP_STORE_KEY_ID != '' }}
+        if: env.APP_STORE_KEY_ID != ''
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
           echo "${{ secrets.APP_STORE_KEY_CONTENT }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_KEY_ID }}.p8
 
       - name: Upload to App Store Connect
-        if: ${{ env.APP_STORE_KEY_ID != '' }}
+        if: env.APP_STORE_KEY_ID != ''
         run: |
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n 1)
           echo "Found IPA at: $IPA_PATH"
@@ -311,7 +305,6 @@ jobs:
             --apiKey "${{ secrets.APP_STORE_KEY_ID }}" \
             --apiIssuer "${{ secrets.APP_STORE_ISSUER_ID }}"
 
-# --- JOB 4: Create GitHub Release ---
   create-release:
     name: Finalize GitHub Release
     needs: [prepare_release, build-web-docker, build-android, build-ios]
