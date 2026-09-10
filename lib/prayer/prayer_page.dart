@@ -1,8 +1,8 @@
 import 'dart:async' show StreamSubscription, unawaited;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemNavigator;
+import 'package:material_ui/material_ui.dart';
 
 import '../data/database.dart';
 import '../data/preferences.dart';
