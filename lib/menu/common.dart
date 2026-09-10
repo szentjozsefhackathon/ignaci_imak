@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart' show BuildContext;
 
 import '../data/database.dart';
-import '../services.dart';
+import '../services/sync_service.dart' show SyncService;
 
 Future<void> downloadMissingImages(
   BuildContext context,

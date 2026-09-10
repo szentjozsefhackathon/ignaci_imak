@@ -1,8 +1,69 @@
+import 'package:audio_service/audio_service.dart' hide AudioHandler;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ignaci_imak/data/types.dart';
 import 'package:ignaci_imak/services/audio_handler.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('AudioHandler prayer state', () {
+    late AudioHandler handler;
+
+    setUp(() => handler = AudioHandler());
+    tearDown(() => handler.stop());
+
+    test('prepares a prayer and starts at a restored elapsed time', () {
+      handler.preparePrayer(const Duration(minutes: 5));
+      handler.startPrayerTimer(elapsed: const Duration(seconds: 42));
+
+      expect(handler.prayerElapsed, const Duration(seconds: 42));
+      expect(handler.remainingTime, const Duration(minutes: 4, seconds: 18));
+      expect(handler.prayerIsRunning, isTrue);
+    });
+
+    test('clamps restored elapsed time to the prayer duration', () async {
+      handler.preparePrayer(const Duration(seconds: 30));
+      handler.startPrayerTimer(elapsed: const Duration(seconds: -1));
+      expect(handler.prayerElapsed, Duration.zero);
+      expect(handler.remainingTime, const Duration(seconds: 30));
+      await handler.stop();
+
+      handler.preparePrayer(const Duration(seconds: 30));
+      handler.startPrayerTimer(elapsed: const Duration(minutes: 2));
+      expect(handler.prayerElapsed, const Duration(seconds: 30));
+      expect(handler.remainingTime, Duration.zero);
+    });
+
+    test('pause and play update timer state', () async {
+      handler.preparePrayer(const Duration(minutes: 1));
+      handler.startPrayerTimer(elapsed: const Duration(seconds: 10));
+
+      await handler.pause();
+      expect(handler.prayerIsRunning, isFalse);
+      expect(handler.isPausedByUser, isTrue);
+
+      await handler.play();
+      expect(handler.prayerIsRunning, isTrue);
+      expect(handler.isPausedByUser, isFalse);
+    });
+
+    test('selects valid queue items and ignores invalid indices', () async {
+      handler.queue.add([
+        const MediaItem(id: 'one', title: 'One'),
+        const MediaItem(id: 'two', title: 'Two'),
+      ]);
+      handler.playbackState.add(PlaybackState());
+
+      await handler.skipToQueueItem(1, resetTimer: false);
+      expect(handler.currentIndex, 1);
+      expect(handler.currentItem?.id, 'two');
+
+      await handler.skipToQueueItem(-1);
+      await handler.skipToQueueItem(2);
+      expect(handler.currentIndex, 1);
+    });
+  });
+
   group('AudioHandler.computePageStartTimes', () {
     test('returns empty list for empty steps', () {
       expect(AudioHandler.computePageStartTimes([], Duration.zero), isEmpty);
