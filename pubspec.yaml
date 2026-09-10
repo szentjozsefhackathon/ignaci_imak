@@ -159,6 +159,5 @@ sentry:
   project: ignaci_imak
   upload_debug_symbols: true
   upload_source_maps: true
-  dart_symbol_map_path: build/mapping.json
-  symbols_path: build/symbols
-  url_prefix: ~/flutter/
+  wait_for_processing: true
+  url_prefix: ~/web-app/
