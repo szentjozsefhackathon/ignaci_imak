@@ -22,6 +22,8 @@ extension PrayerWithStepsExtensions on PrayerWithSteps {
       steps.fold(Duration.zero, (t, step) => t += step.time);
 }
 
+typedef PrayerOffset = ({int page, Duration elapsed});
+
 abstract class PrayerBase {
   PrayerBase({required this.title, required this.image})
     : slug = slugify(removeDiacritics(title));

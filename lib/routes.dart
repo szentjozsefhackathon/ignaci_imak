@@ -6,6 +6,7 @@ import 'data/database.dart';
 import 'menu/prayer_groups_page.dart';
 import 'menu/prayers_page.dart';
 import 'prayer/prayer_description_page.dart';
+import 'prayer/prayer_page.dart';
 import 'settings/data_sync_page.dart';
 import 'settings/impressum_page.dart';
 import 'settings/settings_page.dart';
@@ -20,6 +21,32 @@ class Routes {
   static String prayers(PrayerGroup group) => '/${group.slug}';
   static String prayer(PrayerGroup group, Prayer prayer) =>
       '${prayers(group)}/${prayer.slug}';
+
+  static String prayerState(
+    PrayerGroup group,
+    Prayer prayer, {
+    required int page,
+    required Duration elapsed,
+  }) => Uri(
+    path: Routes.prayer(group, prayer),
+    queryParameters: {
+      'p': '$page',
+      't':
+          '${(elapsed.inMicroseconds + Duration.microsecondsPerSecond - 1) ~/ Duration.microsecondsPerSecond}',
+    },
+  ).toString();
+
+  static PrayerOffset? prayerOffset(Uri uri, int pageCount) {
+    final elapsed = int.tryParse(uri.queryParameters['t'] ?? '');
+    final page = int.tryParse(uri.queryParameters['p'] ?? '') ?? 0;
+    if (elapsed == null || elapsed < 0 || page < 0 || pageCount == 0) {
+      return null;
+    }
+    return (
+      page: page.clamp(0, pageCount - 1),
+      elapsed: Duration(seconds: elapsed),
+    );
+  }
 
   static const settings = '/beallitasok';
   static const dataSync = '$settings/adatok';
@@ -104,10 +131,9 @@ class Routes {
               ),
             );
           }
-          final [groupSlug, prayerSlug] = uri.pathSegments;
           return Consumer<Database>(
             builder: (context, db, _) => FutureBuilder(
-              future: db.prayersDao.findPrayerBySlugs(groupSlug, prayerSlug),
+              future: _loadPrayer(db, uri),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Scaffold(
@@ -123,7 +149,18 @@ class Routes {
                 if (data == null) {
                   return const _NotFoundPage();
                 }
-                return PrayerDescriptionPage(prayer: data);
+                final offset = Routes.prayerOffset(
+                  uri,
+                  data.withSteps?.steps.length ?? 0,
+                );
+                if (offset != null && data.withSteps != null) {
+                  return PrayerPage(
+                    group: data.prayer.group,
+                    prayer: data.withSteps!,
+                    offset: offset,
+                  );
+                }
+                return PrayerDescriptionPage(prayer: data.prayer);
               },
             ),
           );
@@ -137,6 +174,20 @@ class Routes {
     settings: s,
     builder: (context) => const _NotFoundPage(),
   );
+
+  static Future<({PrayerWithGroup prayer, PrayerWithSteps? withSteps})?>
+  _loadPrayer(Database db, Uri uri) async {
+    final [groupSlug, prayerSlug] = uri.pathSegments;
+    final prayer = await db.prayersDao.findPrayerBySlugs(groupSlug, prayerSlug);
+    if (prayer == null || !uri.queryParameters.containsKey('t')) {
+      return prayer == null ? null : (prayer: prayer, withSteps: null);
+    }
+    final steps = await db.prayersDao.prayerStepsOf(prayer.prayer);
+    return (
+      prayer: prayer,
+      withSteps: steps.isEmpty ? null : (prayer: prayer.prayer, steps: steps),
+    );
+  }
 }
 
 extension _RoutesExtension on BuildContext {
