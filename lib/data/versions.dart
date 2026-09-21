@@ -12,7 +12,7 @@ class Versions extends Equatable {
     required this.timestamp,
   });
 
-  factory Versions.fromJson(Json json, {required DateTime timestamp}) =>
+  factory Versions.fromJson(Json json, {required DateTime? timestamp}) =>
       Versions(
         data: json['data'] as String,
         images: json['images'] as String,
@@ -37,7 +37,7 @@ class Versions extends Equatable {
   final String voices;
 
   /// UTC timestamp of the last check
-  final DateTime timestamp;
+  final DateTime? timestamp;
 
   @override
   List<Object?> get props => [data, images, voices];
