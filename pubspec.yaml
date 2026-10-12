@@ -78,7 +78,7 @@ dependencies:
 
 dev_dependencies:
   android_notification_icons: ^0.0.1
-  build_runner: ^2.16.1
+  build_runner: ^2.16.2
   drift_dev: ^2.35.1
   envied_generator: ^1.3.10
   flutter_launcher_icons: ^0.14.4
