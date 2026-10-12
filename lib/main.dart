@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -18,7 +20,8 @@ import 'data/preferences.dart';
 import 'notifications.dart' show NotificationsProvider;
 import 'routes.dart';
 import 'sentry.dart';
-import 'services.dart';
+import 'services/audio_handler.dart';
+import 'services/sync_service.dart' show SyncServiceProvider;
 import 'settings/dnd.dart' show DndProvider;
 import 'settings/focus_status.dart' show FocusStatusProvider;
 import 'theme.dart';
@@ -29,7 +32,16 @@ void main() async {
 
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
-    debugPrint('${record.level.name}: ${record.time}: ${record.message}');
+    developer.log(
+      record.message,
+      level: record.level.value,
+      time: record.time,
+      name: record.loggerName,
+      error: record.error,
+      stackTrace: record.stackTrace,
+      sequenceNumber: record.sequenceNumber,
+      zone: record.zone,
+    );
   });
 
   if (kIsWeb) {
